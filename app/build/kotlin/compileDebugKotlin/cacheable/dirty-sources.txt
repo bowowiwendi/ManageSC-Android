@@ -1,0 +1,9 @@
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/ui/AppNav.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/data/Prefs.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/ui/EditScreen.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/github/GitHubSync.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/MainActivity.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/data/VpsDbHelper.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/worker/ExpiryCheckWorker.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/ui/ListScreen.kt
+/root/ManageSC-Android/app/src/main/java/com/managesc/app/ui/SettingsScreen.kt

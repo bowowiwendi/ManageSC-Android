@@ -1,0 +1,18 @@
+R_DEF: Internal format may change without notice
+local
+string app_name
+string menu_add
+string menu_list
+string menu_settings
+string notif_expiry_title
+string pin_hint
+string pin_setup
+string pin_title
+string pin_wrong
+string settings_change_pin
+string settings_github_path
+string settings_github_repo
+string settings_github_token
+string settings_github_user
+string settings_sync_now
+style Theme.ManageSC

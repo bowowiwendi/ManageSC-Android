@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ManageSC</string>
+    <string name="pin_title">Masukkan PIN</string>
+    <string name="pin_hint">PIN 6 digit</string>
+    <string name="pin_wrong">PIN salah</string>
+    <string name="pin_setup">Setup PIN Baru</string>
+    <string name="menu_list">Daftar VPS</string>
+    <string name="menu_add">Tambah</string>
+    <string name="menu_settings">Pengaturan</string>
+    <string name="settings_github_token">GitHub Token (PAT)</string>
+    <string name="settings_github_user">GitHub Username</string>
+    <string name="settings_github_repo">Repo (user/repo)</string>
+    <string name="settings_github_path">Path file (misal: main/ip)</string>
+    <string name="settings_sync_now">Sync ke GitHub Sekarang</string>
+    <string name="settings_change_pin">Ubah PIN</string>
+    <string name="notif_expiry_title">VPS Akan Kadaluarsa</string>
+</resources>
