@@ -111,10 +111,14 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
                 scope.launch {
                     try {
                         val v = Vps(
-                            id = id, username = username, tipeAkun = tipe, masaAktif = masaAktif,
+                            id = id, username = username, tipeAkun = normTipe, masaAktif = masaAktif,
                             ipVps = ip, emailMember = email, ram = ram, pesan = pesan,
                             userSsh = userSsh, passSsh = passSsh, serverAktif = serverAktif
                         )
+                        val normTipe = when {
+                            tipe.equals("Unlimited", true) || tipe.equals("lifetime", true) || tipe.equals("liftime", true) -> "Unlimited"
+                            else -> "Limit"
+                        }
                         if (id > 0) db.update(v) else db.insert(v)
                         withContext(Dispatchers.Main) {
                             if (ip.isNotBlank() && passSsh.isNotBlank()) {

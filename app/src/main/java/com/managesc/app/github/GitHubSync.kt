@@ -100,8 +100,16 @@ object GitHubSync {
                 } else null
             }
             val db = VpsDbHelper(context)
-            db.replaceAll(list)
-            "Berhasil tarik ${list.size} data dari GitHub"
+            // Pertahankan kredensial SSH lokal (user/pass tidak di-sync ke repo)
+            val localByKey = db.getAll().associateBy { "${it.username}|${it.ipVps}" }
+            val merged = list.map { pulled ->
+                val local = localByKey["${pulled.username}|${pulled.ipVps}"]
+                if (local != null && pulled.userSsh.isBlank() && pulled.passSsh.isBlank()) {
+                    pulled.copy(userSsh = local.userSsh, passSsh = local.passSsh, serverAktif = local.serverAktif)
+                } else pulled
+            }
+            db.replaceAll(merged)
+            "Berhasil tarik ${merged.size} data dari GitHub (kredensial SSH lokal dipertahankan)"
         } catch (e: Exception) {
             "Error: ${e.message ?: e.javaClass.simpleName}"
         }

@@ -22,18 +22,34 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
     var output by remember { mutableStateOf("Menghubungkan ke ${v?.ipVps ?: ""} ...\n") }
     var cmd by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
+    var connected by remember { mutableStateOf(false) }
     val lines = remember { mutableStateListOf<String>() }
+    val port = 22
 
     val setupScript = "sysctl net.ipv6.conf.all.disable_ipv6=1 && sysctl net.ipv6.conf.default.disable_ipv6=1 && apt update -y && apt upgrade -y && apt install -y bzip2 gzip coreutils screen curl unzip && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/bowowiwendi/WendyVpn/ABSTRAK/setup-main.sh && chmod +x setup-main.sh && sed -i -e 's/\\$//' setup-main.sh && screen -S setupku ./setup-main.sh"
 
     fun append(line: String) { lines.add(line) }
 
     LaunchedEffect(Unit) {
-        append("Menghubungkan ke ${v?.ipVps} sebagai ${v?.userSsh ?: "root"} ...")
+        if (v != null) {
+            append("Menghubungkan ke ${v.ipVps}:$port sebagai ${v.userSsh.ifBlank { "root" }} ...")
+            val r = RemoteSsh.testConnection(v.ipVps, v.userSsh.ifBlank { "root" }, v.passSsh, port)
+            if (r.startsWith("Koneksi SSH berhasil")) {
+                connected = true
+                append("● Terhubung (port 22)")
+            } else {
+                append("✗ $r")
+            }
+        }
     }
 
     Column(Modifier.fillMaxSize().padding(12.dp)) {
         Text("Remote: ${v?.username} (${v?.ipVps})", style = MaterialTheme.typography.titleMedium)
+        Text(
+            if (connected) "● Terhubung (port 22)" else "○ Belum terhubung",
+            style = MaterialTheme.typography.labelMedium,
+            color = if (connected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+        )
         Spacer(Modifier.height(8.dp))
         Surface(
             modifier = Modifier.fillMaxWidth().weight(1f),

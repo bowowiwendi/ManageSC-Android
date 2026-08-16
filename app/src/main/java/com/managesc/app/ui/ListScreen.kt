@@ -110,7 +110,8 @@ fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit, onRemot
 data class ExpiryInfo(val days: Int, val text: String)
 
 fun expiryInfo(v: Vps): ExpiryInfo {
-    if (v.tipeAkun.equals("Unlimited", true) || v.masaAktif.isBlank()) {
+    if (v.tipeAkun.equals("Unlimited", true) || v.tipeAkun.equals("lifetime", true)
+        || v.tipeAkun.equals("liftime", true) || v.masaAktif.isBlank()) {
         return ExpiryInfo(Int.MAX_VALUE, "Unlimited (tidak kadaluarsa)")
     }
     return try {

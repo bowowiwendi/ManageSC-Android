@@ -29,7 +29,8 @@ class ExpiryCheckWorker(ctx: Context, params: WorkerParameters) :
         val list = VpsDbHelper(context).getAll()
         val expiring = mutableListOf<String>()
         for (v in list) {
-            if (v.tipeAkun.equals("Unlimited", true) || v.masaAktif.isBlank()) continue
+            if (v.tipeAkun.equals("Unlimited", true) || v.tipeAkun.equals("lifetime", true)
+                || v.tipeAkun.equals("liftime", true) || v.masaAktif.isBlank()) continue
             val info = expiryInfo(v)
             if (info.days in 0..7) {
                 expiring.add("${v.username} (${v.ipVps}) — ${if (info.days == 0) "hari ini" else "${info.days} hari lagi"}")
