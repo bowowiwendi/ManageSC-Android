@@ -1,6 +1,8 @@
 package com.managesc.app.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -22,7 +24,7 @@ fun SettingsScreen(context: android.content.Context, onLock: () -> Unit) {
     var syncing by remember { mutableStateOf(false) }
     var newPin by remember { mutableStateOf("") }
 
-    Column(Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Pengaturan GitHub Sync", style = MaterialTheme.typography.titleLarge)
 
         OutlinedTextField(token, { token = it }, Modifier.fillMaxWidth(), label = { Text("GitHub Token (PAT)") }, singleLine = false)
