@@ -35,8 +35,11 @@ fun SettingsScreen(context: android.content.Context, onLock: () -> Unit) {
             Prefs.setGhRepo(context, repo)
             Prefs.setGhPath(context, path)
             status = "Menyinkronkan..."
-            CoroutineScope(Dispatchers.Main).launch {
-                status = GitHubSync.sync(context)
+            CoroutineScope(Dispatchers.IO).launch {
+                val result = GitHubSync.sync(context)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    status = result
+                }
             }
         }) { Text("Simpan & Sync Sekarang") }
 

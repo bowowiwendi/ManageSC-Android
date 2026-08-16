@@ -18,7 +18,9 @@ import java.util.*
 fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit) {
     var items by remember { mutableStateOf(emptyList<Vps>()) }
     var query by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) { items = VpsDbHelper(context).getAll() }
+
+    fun reload() { items = VpsDbHelper(context).getAll() }
+    LaunchedEffect(Unit) { reload() }
 
     val filtered = items.filter {
         it.username.contains(query, true) || it.ipVps.contains(query, true)
