@@ -132,5 +132,26 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
                 masaAktif = sdf.format(cal.time)
             }, enabled = !saving) { Text("Perpanjang +30 hari") }
         }
+
+        Divider()
+        Text("Skrip Setup VPS", style = MaterialTheme.typography.titleSmall)
+        val setupScript = remember(ip) {
+            """sysctl net.ipv6.conf.all.disable_ipv6=1 && sysctl net.ipv6.conf.default.disable_ipv6=1 && apt update -y && apt upgrade -y && apt install -y bzip2 gzip coreutils screen curl unzip && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/bowowiwendi/WendyVpn/ABSTRAK/setup-main.sh && chmod +x setup-main.sh && sed -i -e 's/\$//' setup-main.sh && screen -S setupku ./setup-main.sh"""
+        }
+        OutlinedTextField(
+            value = setupScript,
+            onValueChange = {},
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth().height(120.dp),
+            label = { Text("Skrip (ganti IP manual saat di VPS)") },
+            singleLine = false
+        )
+        Button(onClick = {
+            val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            cm.setPrimaryClip(android.content.ClipData.newPlainText("SetupVPS", setupScript))
+            errorMsg = "Skrip disalin ke clipboard"
+        }, modifier = Modifier.fillMaxWidth()) {
+            Text("Salin Skrip Setup VPS")
+        }
     }
 }

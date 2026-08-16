@@ -19,8 +19,7 @@ data class GhContentRequest(
 )
 
 data class GhContentResponse(
-    val sha: String?,
-    val content: Map<String, Any>?
+    val sha: String? = null
 )
 
 interface GitHubApi {
@@ -105,16 +104,21 @@ object GitHubSync {
             try {
                 val getResp = api.getFile(user, repo, path)
                 if (getResp.isSuccessful) sha = getResp.body()?.sha
-            } catch (_: Exception) { /* file mungkin belum ada */ }
+            } catch (e: Exception) {
+                // file mungkin belum ada -> sha tetap null (PUT akan buat baru)
+            }
 
             val resp = api.putFile(
                 user, repo, path,
                 GhContentRequest("Update VPS list from ManageSC-Android", b64, sha)
             )
-            if (resp.isSuccessful) "Berhasil sync ${list.size} data ke GitHub"
-            else "Gagal: ${resp.code()} ${resp.errorBody()?.string()?.take(200)}"
+            if (resp.isSuccessful) "Berhasil sync ${list.size} data ke GitHub ($path)"
+            else {
+                val err = resp.errorBody()?.string()?.take(300) ?: resp.message()
+                "Gagal sync (${resp.code()}): $err"
+            }
         } catch (e: Exception) {
-            "Error: ${e.message}"
+            "Error: ${e.message ?: e.javaClass.simpleName}"
         }
     }
 }

@@ -4,9 +4,12 @@ import android.os.Process
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -81,41 +84,84 @@ fun AppNav(
 fun PinScreen(context: android.content.Context, onSuccess: () -> Unit) {
     val hasPin = Prefs.hasPin(context)
     var pin by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
-    Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(if (hasPin) "Masukkan PIN" else "Buat PIN 6 digit", style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.height(16.dp))
-        OutlinedTextField(
-            value = pin,
-            onValueChange = { if (it.length <= 6) pin = it.filter { c -> c.isDigit() } },
-            label = { Text("PIN") },
-            isError = error,
-            singleLine = true
-        )
-        if (error) Text("PIN salah", color = MaterialTheme.colorScheme.error)
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = {
-            if (hasPin) {
-                if (Prefs.verifyPin(context, pin)) onSuccess() else error = true
-            } else {
-                if (pin.length == 6) {
-                    Prefs.setPin(context, pin)
-                    onSuccess()
-                } else error = true
+    var pinConfirm by remember { mutableStateOf("") }
+    var showConfirm by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf("") }
+    var checking by remember { mutableStateOf(false) }
+
+    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+        Column(
+            Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                if (hasPin) "Masukkan PIN" else if (showConfirm) "Konfirmasi PIN" else "Buat PIN 6 digit",
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Spacer(Modifier.height(24.dp))
+            OutlinedTextField(
+                value = if (showConfirm) pinConfirm else pin,
+                onValueChange = {
+                    val cleaned = it.filter { c -> c.isDigit() }.take(6)
+                    if (showConfirm) pinConfirm = cleaned else pin = cleaned
+                    error = ""
+                },
+                label = { Text(if (showConfirm) "Ulangi PIN" else "PIN") },
+                isError = error.isNotBlank(),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                modifier = Modifier.fillMaxWidth(0.7f)
+            )
+            if (error.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(error, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
             }
-        }) {
-            Text(if (hasPin) "Masuk" else "Simpan PIN")
-        }
-        if (hasPin) {
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = {
-                Prefs.clearPin(context)
-                Process.killProcess(Process.myPid())
-            }) {
-                Text("Lupa PIN? Reset (hapus semua data VPS)")
+            Spacer(Modifier.height(24.dp))
+            Button(
+                onClick = {
+                    if (hasPin) {
+                        checking = true
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                            if (Prefs.verifyPin(context, pin)) onSuccess() else {
+                                error = "PIN salah"
+                                checking = false
+                                pin = ""
+                            }
+                        }, 400)
+                    } else {
+                        if (!showConfirm) {
+                            if (pin.length == 6) { showConfirm = true; pinConfirm = "" }
+                            else error = "PIN harus 6 digit"
+                        } else {
+                            if (pinConfirm.length == 6 && pinConfirm == pin) {
+                                Prefs.setPin(context, pin)
+                                onSuccess()
+                            } else if (pinConfirm.length == 6) {
+                                error = "PIN tidak cocok"
+                                pinConfirm = ""
+                            } else error = "PIN harus 6 digit"
+                        }
+                    }
+                },
+                enabled = !checking,
+                modifier = Modifier.fillMaxWidth(0.7f)
+            ) {
+                if (checking) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary)
+                } else {
+                    Text(if (hasPin) "Masuk" else if (showConfirm) "Konfirmasi" else "Simpan PIN")
+                }
+            }
+            if (hasPin) {
+                Spacer(Modifier.height(12.dp))
+                TextButton(onClick = {
+                    Prefs.clearPin(context)
+                    android.os.Process.killProcess(android.os.Process.myPid())
+                }) {
+                    Text("Lupa PIN? Reset (hapus semua data VPS)")
+                }
             }
         }
     }
