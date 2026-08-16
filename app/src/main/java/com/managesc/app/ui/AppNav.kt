@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Public
 import com.managesc.app.data.Prefs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -54,7 +55,7 @@ fun AppNav(
                 NavigationBarItem(
                     selected = false,
                     onClick = { nav.navigate("dns") },
-                    icon = { Icon(Icons.Filled.Dns, contentDescription = "DNS") },
+                    icon = { Icon(Icons.Filled.Public, contentDescription = "DNS") },
                     label = { Text("DNS") }
                 )
             }
