@@ -8,8 +8,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -110,7 +108,7 @@ fun PinScreen(context: android.content.Context, onSuccess: () -> Unit) {
                 label = { Text(if (showConfirm) "Ulangi PIN" else "PIN") },
                 isError = error.isNotBlank(),
                 singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
+                keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.NumberPassword),
                 modifier = Modifier.fillMaxWidth(0.7f)
             )
             if (error.isNotBlank()) {
