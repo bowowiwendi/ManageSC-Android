@@ -20,8 +20,7 @@ import com.managesc.app.data.Prefs
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNav(
-    context: android.content.Context,
-    onLockRequest: () -> Unit
+    context: android.content.Context
 ) {
     var locked by remember { mutableStateOf(!Prefs.hasPin(context)) }
     val nav = rememberNavController()
