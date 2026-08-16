@@ -19,6 +19,8 @@ object Prefs {
 
     fun hasPin(ctx: Context): Boolean = sp(ctx).contains(KEY_PIN_HASH)
 
+    fun clearPin(ctx: Context) = sp(ctx).edit { remove(KEY_PIN_HASH) }
+
     fun setPin(ctx: Context, pin: String) {
         sp(ctx).edit { putString(KEY_PIN_HASH, hash(pin)) }
     }

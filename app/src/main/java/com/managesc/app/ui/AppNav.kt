@@ -106,5 +106,17 @@ fun PinScreen(context: android.content.Context, onSuccess: () -> Unit) {
         }) {
             Text(if (hasPin) "Masuk" else "Simpan PIN")
         }
+        if (hasPin) {
+            Spacer(Modifier.height(8.dp))
+            TextButton(onClick = {
+                Prefs.clearPin(context)
+                error = false
+                pin = ""
+                // force recompose ke mode setup
+                android.os.Process.killProcess(android.os.Process.myPid())
+            }) {
+                Text("Lupa PIN? Reset (hapus semua data VPS)")
+            }
+        }
     }
 }
