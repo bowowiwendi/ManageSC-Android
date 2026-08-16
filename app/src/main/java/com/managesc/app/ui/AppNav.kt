@@ -51,6 +51,12 @@ fun AppNav(
                     icon = { Icon(Icons.Filled.Settings, contentDescription = "Setelan") },
                     label = { Text("Setelan") }
                 )
+                NavigationBarItem(
+                    selected = false,
+                    onClick = { nav.navigate("dns") },
+                    icon = { Icon(Icons.Filled.Dns, contentDescription = "DNS") },
+                    label = { Text("DNS") }
+                )
             }
         }
     ) { padding ->
@@ -75,6 +81,9 @@ fun AppNav(
             }
             composable("settings") {
                 SettingsScreen(context = context, onLock = { locked = true })
+            }
+            composable("dns") {
+                DnsScreen(context = context, onBack = { nav.popBackStack() })
             }
         }
     }

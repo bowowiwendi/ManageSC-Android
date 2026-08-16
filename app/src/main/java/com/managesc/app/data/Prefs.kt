@@ -13,6 +13,8 @@ object Prefs {
     private const val KEY_GH_REPO = "gh_repo"
     private const val KEY_GH_PATH = "gh_path"
     private const val KEY_GH_ENABLED = "gh_enabled"
+    private const val KEY_CF_EMAIL = "cf_email"
+    private const val KEY_CF_KEY = "cf_global_key"
 
     private fun sp(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -50,4 +52,10 @@ object Prefs {
 
     fun isGhEnabled(ctx: Context) = sp(ctx).getBoolean(KEY_GH_ENABLED, false)
     fun setGhEnabled(ctx: Context, v: Boolean) = sp(ctx).edit { putBoolean(KEY_GH_ENABLED, v) }
+
+    // Cloudflare (hanya lokal, tidak disync ke repo)
+    fun getCfEmail(ctx: Context) = sp(ctx).getString(KEY_CF_EMAIL, "") ?: ""
+    fun setCfEmail(ctx: Context, v: String) = sp(ctx).edit { putString(KEY_CF_EMAIL, v) }
+    fun getCfKey(ctx: Context) = sp(ctx).getString(KEY_CF_KEY, "") ?: ""
+    fun setCfKey(ctx: Context, v: String) = sp(ctx).edit { putString(KEY_CF_KEY, v) }
 }
