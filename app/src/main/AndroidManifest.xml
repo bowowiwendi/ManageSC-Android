@@ -13,7 +13,7 @@
     <application
         android:name=".App"
         android:allowBackup="false"
-        android:icon="@android:drawable/ic_menu_manage"
+        android:icon="@mipmap/ic_launcher"
         android:label="ManageSC"
         android:supportsRtl="true"
         android:theme="@style/Theme.ManageSC"
