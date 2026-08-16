@@ -1,68 +1,136 @@
 package com.managesc.app.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.managesc.app.data.Vps
 import com.managesc.app.data.VpsDbHelper
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
+    val scope = rememberCoroutineScope()
     val db = remember { VpsDbHelper(context) }
     val existing = remember { if (id > 0) db.getById(id) else null }
 
     var username by remember { mutableStateOf(existing?.username ?: "") }
-    var tipe by remember { mutableStateOf(existing?.tipeAkun ?: "") }
+    var tipe by remember { mutableStateOf(existing?.tipeAkun ?: "Limit") }
+    var tipeExpanded by remember { mutableStateOf(false) }
     var masaAktif by remember { mutableStateOf(existing?.masaAktif ?: "") }
     var ip by remember { mutableStateOf(existing?.ipVps ?: "") }
     var email by remember { mutableStateOf(existing?.emailMember ?: "") }
     var ram by remember { mutableStateOf(existing?.ram ?: "") }
     var pesan by remember { mutableStateOf(existing?.pesan ?: "") }
 
-    Column(Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    var saving by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf("") }
+
+    val tipeOptions = listOf("Limit", "Unlimited")
+
+    Column(
+        Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding()
+            .imePadding(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Text(if (id > 0) "Edit VPS" else "Tambah VPS", style = MaterialTheme.typography.headlineSmall)
-        OutlinedTextField(username, { username = it }, Modifier.fillMaxWidth(), label = { Text("Username") })
-        OutlinedTextField(tipe, { tipe = it }, Modifier.fillMaxWidth(), label = { Text("Tipe Akun") })
-        OutlinedTextField(masaAktif, { masaAktif = it }, Modifier.fillMaxWidth(), label = { Text("Masa Aktif (yyyy-MM-dd)") }, placeholder = { Text("2026-12-31") })
-        OutlinedTextField(ip, { ip = it }, Modifier.fillMaxWidth(), label = { Text("IP VPS") })
-        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email Member") })
-        OutlinedTextField(ram, { ram = it }, Modifier.fillMaxWidth(), label = { Text("RAM") })
-        OutlinedTextField(pesan, { pesan = it }, Modifier.fillMaxWidth().height(80.dp), label = { Text("Pesan") }, singleLine = false)
+
+        OutlinedTextField(username, { username = it }, Modifier.fillMaxWidth(), label = { Text("Username") }, singleLine = true)
+        OutlinedTextField(ip, { ip = it }, Modifier.fillMaxWidth(), label = { Text("IP VPS") }, singleLine = true)
+        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email Member") }, singleLine = true)
+        OutlinedTextField(ram, { ram = it }, Modifier.fillMaxWidth(), label = { Text("RAM") }, singleLine = true)
+
+        // Tipe Akun — dropdown Limit / Unlimited
+        ExposedDropdownMenuBox(expanded = tipeExpanded, onExpandedChange = { tipeExpanded = it }) {
+            OutlinedTextField(
+                value = tipe,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Tipe Akun") },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = tipeExpanded) },
+                modifier = Modifier.menuAnchor().fillMaxWidth()
+            )
+            ExposedDropdownMenu(expanded = tipeExpanded, onDismissRequest = { tipeExpanded = false }) {
+                tipeOptions.forEach { opt ->
+                    DropdownMenuItem(text = { Text(opt) }, onClick = {
+                        tipe = opt
+                        tipeExpanded = false
+                    })
+                }
+            }
+        }
+
+        OutlinedTextField(masaAktif, { masaAktif = it }, Modifier.fillMaxWidth(),
+            label = { Text("Masa Aktif (yyyy-MM-dd)") }, placeholder = { Text("2026-12-31") }, singleLine = true)
+        OutlinedTextField(pesan, { pesan = it }, Modifier.fillMaxWidth().height(80.dp),
+            label = { Text("Pesan") }, singleLine = false)
+
+        if (errorMsg.isNotBlank()) {
+            Text(errorMsg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = {
-                val v = Vps(
-                    id = id,
-                    username = username,
-                    tipeAkun = tipe,
-                    masaAktif = masaAktif,
-                    ipVps = ip,
-                    emailMember = email,
-                    ram = ram,
-                    pesan = pesan
-                )
-                if (id > 0) db.update(v) else db.insert(v)
-                onDone()
-            }, Modifier.weight(1f)) { Text("Simpan") }
+            Button(
+                onClick = {
+                    if (username.isBlank()) { errorMsg = "Username wajib diisi"; return@Button }
+                    saving = true
+                    errorMsg = ""
+                    scope.launch {
+                        try {
+                            val v = Vps(
+                                id = id,
+                                username = username,
+                                tipeAkun = tipe,
+                                masaAktif = masaAktif,
+                                ipVps = ip,
+                                emailMember = email,
+                                ram = ram,
+                                pesan = pesan
+                            )
+                            if (id > 0) db.update(v) else db.insert(v)
+                            withContext(Dispatchers.Main) { onDone() }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                saving = false
+                                errorMsg = "Gagal simpan: ${e.message ?: e.javaClass.simpleName}"
+                            }
+                        }
+                    }
+                },
+                enabled = !saving,
+                modifier = Modifier.weight(1f)
+            ) {
+                if (saving) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary)
+                } else Text("Simpan")
+            }
 
             if (id > 0) {
-                OutlinedButton(onClick = { db.delete(id); onDone() }) { Text("Hapus") }
+                OutlinedButton(onClick = {
+                    saving = true
+                    scope.launch {
+                        try { db.delete(id); withContext(Dispatchers.Main) { onDone() } }
+                        catch (e: Exception) { withContext(Dispatchers.Main) { saving = false; errorMsg = "Gagal hapus: ${e.message}" } }
+                    }
+                }, enabled = !saving) { Text("Hapus") }
             }
         }
 
         if (id > 0) {
             OutlinedButton(onClick = {
-                // Renew: +30 hari dari masa aktif sekarang (atau hari ini)
-                val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                val base = try { sdf.parse(masaAktif) } catch (_: Exception) { Date() } ?: Date()
-                val cal = Calendar.getInstance().apply { time = base; add(Calendar.DAY_OF_MONTH, 30) }
+                // Perpanjang +30 hari dari masa aktif sekarang (atau hari ini)
+                val sdf = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                val base = try { sdf.parse(masaAktif) } catch (_: Exception) { java.util.Date() } ?: java.util.Date()
+                val cal = java.util.Calendar.getInstance().apply { time = base; add(java.util.Calendar.DAY_OF_MONTH, 30) }
                 masaAktif = sdf.format(cal.time)
-            }) { Text("Perpanjang +30 hari") }
+            }, enabled = !saving) { Text("Perpanjang +30 hari") }
         }
     }
 }

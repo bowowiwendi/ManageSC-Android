@@ -19,29 +19,37 @@ fun SettingsScreen(context: android.content.Context, onLock: () -> Unit) {
     var repo by remember { mutableStateOf(Prefs.getGhRepo(context)) }
     var path by remember { mutableStateOf(Prefs.getGhPath(context)) }
     var status by remember { mutableStateOf("") }
+    var syncing by remember { mutableStateOf(false) }
     var newPin by remember { mutableStateOf("") }
 
-    Column(Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Pengaturan GitHub Sync", style = MaterialTheme.typography.titleLarge)
 
         OutlinedTextField(token, { token = it }, Modifier.fillMaxWidth(), label = { Text("GitHub Token (PAT)") }, singleLine = false)
-        OutlinedTextField(user, { user = it }, Modifier.fillMaxWidth(), label = { Text("Username") })
-        OutlinedTextField(repo, { repo = it }, Modifier.fillMaxWidth(), label = { Text("Repo (misal: ipvps)") })
-        OutlinedTextField(path, { path = it }, Modifier.fillMaxWidth(), label = { Text("Path file (misal: main/ip)") })
+        OutlinedTextField(user, { user = it }, Modifier.fillMaxWidth(), label = { Text("Username") }, singleLine = true)
+        OutlinedTextField(repo, { repo = it }, Modifier.fillMaxWidth(), label = { Text("Repo (misal: ipvps)") }, singleLine = true)
+        OutlinedTextField(path, { path = it }, Modifier.fillMaxWidth(), label = { Text("Path file (misal: main/ip)") }, singleLine = true)
 
         Button(onClick = {
             Prefs.setGhToken(context, token)
             Prefs.setGhUser(context, user)
             Prefs.setGhRepo(context, repo)
             Prefs.setGhPath(context, path)
+            syncing = true
             status = "Menyinkronkan..."
             CoroutineScope(Dispatchers.IO).launch {
                 val result = GitHubSync.sync(context)
                 android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    syncing = false
                     status = result
                 }
             }
-        }) { Text("Simpan & Sync Sekarang") }
+        }, enabled = !syncing) {
+            if (syncing) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary)
+            } else Text("Simpan & Sync Sekarang")
+        }
 
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
 
