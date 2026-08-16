@@ -70,6 +70,18 @@ fun SettingsScreen(context: android.content.Context, onLock: () -> Unit) {
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
 
         Divider()
+        Text("Cloudflare DNS", style = MaterialTheme.typography.titleLarge)
+        var cfEmail by remember { mutableStateOf(Prefs.getCfEmail(context)) }
+        var cfKey by remember { mutableStateOf(Prefs.getCfKey(context)) }
+        OutlinedTextField(cfEmail, { cfEmail = it }, Modifier.fillMaxWidth(), label = { Text("Email Cloudflare") }, singleLine = true)
+        OutlinedTextField(cfKey, { cfKey = it }, Modifier.fillMaxWidth(), label = { Text("Global API Key") }, singleLine = true)
+        Button(onClick = {
+            Prefs.setCfEmail(context, cfEmail)
+            Prefs.setCfKey(context, cfKey)
+            status = "Kredensial Cloudflare tersimpan (lokal)"
+        }) { Text("Simpan Kredensial DNS") }
+
+        Divider()
         Text("Keamanan", style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(newPin, { if (it.length <= 6) newPin = it.filter { c -> c.isDigit() } },
             Modifier.fillMaxWidth(), label = { Text("PIN Baru (6 digit)") })

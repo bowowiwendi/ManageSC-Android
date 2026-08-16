@@ -53,7 +53,7 @@ fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit, onRemot
         it.username.contains(query, true) || it.ipVps.contains(query, true)
     }
 
-    Column(Modifier.fillMaxSize().padding(12.dp)) {
+    Column(Modifier.fillMaxSize().padding(12.dp).navigationBarsPadding().imePadding()) {
         OutlinedTextField(
             value = query,
             onValueChange = { query = it },

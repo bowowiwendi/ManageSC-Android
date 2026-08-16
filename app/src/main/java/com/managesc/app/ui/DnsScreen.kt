@@ -19,8 +19,6 @@ import kotlinx.coroutines.withContext
 @Composable
 fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    var email by remember { mutableStateOf(Prefs.getCfEmail(context)) }
-    var key by remember { mutableStateOf(Prefs.getCfKey(context)) }
     var zones by remember { mutableStateOf<List<CfZone>>(emptyList()) }
     var selectedZone by remember { mutableStateOf<CfZone?>(null) }
     var records by remember { mutableStateOf<List<CfDnsRecord>>(emptyList()) }
@@ -28,10 +26,11 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
     var loading by remember { mutableStateOf(false) }
     var showAdd by remember { mutableStateOf(false) }
 
-    fun cfgOk() = email.isNotBlank() && key.isNotBlank()
+    fun cfgOk() = Prefs.getCfEmail(context).isNotBlank() && Prefs.getCfKey(context).isNotBlank()
 
     fun loadZones() {
-        if (!cfgOk()) { status = "Isi Email & Global API Key dulu"; return }
+        if (!cfgOk()) { status = "Setel Email & Global API Key di menu Stelan dulu"; return }
+        val email = Prefs.getCfEmail(context); val key = Prefs.getCfKey(context)
         loading = true; status = "Memuat domain..."
         scope.launch {
             try {
@@ -53,6 +52,7 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
     }
 
     fun loadRecords(zone: CfZone) {
+        val email = Prefs.getCfEmail(context); val key = Prefs.getCfKey(context)
         loading = true; status = "Memuat record ${zone.name}..."
         scope.launch {
             try {
@@ -73,18 +73,15 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(12.dp).navigationBarsPadding()) {
+    Column(Modifier.fillMaxSize().padding(12.dp).navigationBarsPadding().imePadding()) {
         Text("Kelola DNS Cloudflare", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email Cloudflare") }, singleLine = true)
-        OutlinedTextField(key, { key = it }, Modifier.fillMaxWidth(), label = { Text("Global API Key") }, singleLine = true)
-
         Row(Modifier.fillMaxWidth()) {
             Button(
-                onClick = { Prefs.setCfEmail(context, email); Prefs.setCfKey(context, key); loadZones() },
-                enabled = !loading && cfgOk(),
+                onClick = { loadZones() },
+                enabled = !loading,
                 modifier = Modifier.weight(1f)
-            ) { Text("Simpan & Muat Domain") }
+            ) { Text("Muat Domain") }
             Spacer(Modifier.width(8.dp))
             OutlinedButton(onClick = onBack) { Text("Kembali") }
         }
@@ -130,7 +127,7 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
                                 TextButton(onClick = { showAdd = true; /* edit */ }) { Text("Edit") }
                                 TextButton(onClick = {
                                     loading = true; scope.launch {
-                                        CloudflareClient.api(email, key).deleteDns(selectedZone!!.id, r.id ?: "")
+                                        CloudflareClient.api(Prefs.getCfEmail(context), Prefs.getCfKey(context)).deleteDns(selectedZone!!.id, r.id ?: "")
                                         withContext(Dispatchers.Main) { loadRecords(selectedZone!!) }
                                     }
                                 }) { Text("Hapus", color = MaterialTheme.colorScheme.error) }
@@ -160,7 +157,7 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
                             type = type, name = if (name.isBlank()) selectedZone!!.name else name,
                             content = content, ttl = ttl.toIntOrNull() ?: 1, proxied = proxied
                         )
-                        val resp = CloudflareClient.api(email, key).createDns(selectedZone!!.id, rec)
+                        val resp = CloudflareClient.api(Prefs.getCfEmail(context), Prefs.getCfKey(context)).createDns(selectedZone!!.id, rec)
                         withContext(Dispatchers.Main) {
                             if (resp.isSuccessful && resp.body()?.success == true) {
                                 showAdd = false; loadRecords(selectedZone!!)
