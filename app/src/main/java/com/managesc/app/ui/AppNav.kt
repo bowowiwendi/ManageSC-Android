@@ -60,7 +60,7 @@ fun AppNav(
             modifier = Modifier.padding(padding)
         ) {
             composable("list") {
-                ListScreen(context = context, onEdit = { id -> nav.navigate("edit/$id") })
+                ListScreen(context = context, onEdit = { id -> nav.navigate("edit/$id") }, onRemote = { id -> nav.navigate("remote/$id") })
             }
             composable("add") {
                 EditScreen(context = context, id = 0L, onDone = { nav.navigate("list") { popUpTo("list") { inclusive = true } } })
@@ -68,6 +68,10 @@ fun AppNav(
             composable("edit/{id}") { back ->
                 val id = back.arguments?.getString("id")?.toLongOrNull() ?: 0L
                 EditScreen(context = context, id = id, onDone = { nav.navigate("list") { popUpTo("list") { inclusive = true } } })
+            }
+            composable("remote/{id}") { back ->
+                val id = back.arguments?.getString("id")?.toLongOrNull() ?: 0L
+                RemoteScreen(context = context, id = id, onBack = { nav.popBackStack() })
             }
             composable("settings") {
                 SettingsScreen(context = context, onLock = { locked = true })

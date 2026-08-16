@@ -9,23 +9,44 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.managesc.app.data.Vps
 import com.managesc.app.data.VpsDbHelper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.InetAddress
 import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit) {
+fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit, onRemote: (Long) -> Unit) {
     var items by remember { mutableStateOf(emptyList<Vps>()) }
     var query by remember { mutableStateOf("") }
+    var reach by remember { mutableStateOf(mapOf<Long, Boolean?>()) } // null = cek, true = hidup, false = mati
 
     fun reload() { items = VpsDbHelper(context).getAll() }
     LaunchedEffect(Unit) { reload() }
+
+    // Cek reachability tiap item (ping)
+    LaunchedEffect(items) {
+        val scope = this
+        items.forEach { v ->
+            if (v.ipVps.isNotBlank()) {
+                launch(Dispatchers.IO) {
+                    val alive = try {
+                        InetAddress.getByName(v.ipVps).isReachable(3000)
+                    } catch (_: Exception) { false }
+                    withContext(Dispatchers.Main) {
+                        reach = reach + (v.id to alive)
+                    }
+                }
+            }
+        }
+    }
 
     val filtered = items.filter {
         it.username.contains(query, true) || it.ipVps.contains(query, true)
@@ -41,16 +62,20 @@ fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit) {
         Spacer(Modifier.height(8.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(filtered, key = { it.id }) { v ->
-                Card(Modifier.fillMaxWidth().clickable { onEdit(v.id) }) {
+                Card(Modifier.fillMaxWidth()) {
                     Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        // Lampu status
+                        val alive = reach[v.id]
                         Box(
                             Modifier.size(12.dp).clip(CircleShape).background(
-                                if (v.serverAktif) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
+                                when (alive) {
+                                    true -> Color(0xFF4CAF50)
+                                    false -> Color(0xFFE53935)
+                                    null -> Color(0xFF9E9E9E)
+                                }
                             )
                         )
                         Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
+                        Column(Modifier.weight(1f).clickable { onEdit(v.id) }) {
                             Text(v.username, style = MaterialTheme.typography.titleMedium)
                             Text("IP: ${v.ipVps}", style = MaterialTheme.typography.bodySmall)
                             Text("Tipe: ${v.tipeAkun} • RAM: ${v.ram}", style = MaterialTheme.typography.bodySmall)
@@ -61,6 +86,17 @@ fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit) {
                                 else -> MaterialTheme.colorScheme.onSurface
                             }
                             Text(info.text, style = MaterialTheme.typography.bodySmall, color = color)
+                            Text(
+                                if (alive == true) "● Server hidup (ping OK)"
+                                else if (alive == false) "○ Server mati/tidak reachable"
+                                else "○ Mengecek...",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = when (alive) { true -> Color(0xFF4CAF50); false -> Color(0xFFE53935); else -> MaterialTheme.colorScheme.outline }
+                            )
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Button(onClick = { onRemote(v.id) }, modifier = Modifier.width(96.dp)) {
+                            Text("Remote", fontSize = MaterialTheme.typography.labelSmall.fontSize)
                         }
                     }
                 }

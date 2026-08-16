@@ -1,7 +1,9 @@
 package com.managesc.app.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -38,12 +40,13 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
     var errorMsg by remember { mutableStateOf("") }
     var showScriptDialog by remember { mutableStateOf(false) }
     var sshStatus by remember { mutableStateOf("") }
+    var sshSetupResult by remember { mutableStateOf("") }
 
     val tipeOptions = listOf("Limit", "Unlimited")
     val setupScript = """sysctl net.ipv6.conf.all.disable_ipv6=1 && sysctl net.ipv6.conf.default.disable_ipv6=1 && apt update -y && apt upgrade -y && apt install -y bzip2 gzip coreutils screen curl unzip && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/bowowiwendi/WendyVpn/ABSTRAK/setup-main.sh && chmod +x setup-main.sh && sed -i -e 's/\$//' setup-main.sh && screen -S setupku ./setup-main.sh"""
 
     Column(
-        Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding(),
+        Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(if (id > 0) "Edit VPS" else "Tambah VPS", style = MaterialTheme.typography.headlineSmall)
@@ -114,7 +117,18 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
                         )
                         if (id > 0) db.update(v) else db.insert(v)
                         withContext(Dispatchers.Main) {
-                            if (ip.isNotBlank()) showScriptDialog = true else onDone()
+                            if (ip.isNotBlank() && passSsh.isNotBlank()) {
+                                // Jalankan setup otomatis via SSH setelah daftar
+                                scope.launch {
+                                    val r = RemoteSsh.runCommand(ip, userSsh.ifBlank { "root" }, passSsh, setupScript)
+                                    withContext(Dispatchers.Main) {
+                                        showScriptDialog = true
+                                        sshSetupResult = r
+                                    }
+                                }
+                            } else if (ip.isNotBlank()) {
+                                showScriptDialog = true
+                            } else onDone()
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) { saving = false; errorMsg = "Gagal simpan: ${e.message ?: e.javaClass.simpleName}" }
@@ -171,9 +185,17 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
             title = { Text("Simpan Berhasil") },
             text = {
                 Column {
-                    Text("IP VPS tersimpan. Jalankan skrip ini di server VPS untuk setup otomatis:")
-                    Spacer(Modifier.height(8.dp))
-                    Text(setupScript, style = MaterialTheme.typography.bodySmall)
+                    Text("IP VPS tersimpan.")
+                    if (sshSetupResult.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Hasil setup via SSH:", style = MaterialTheme.typography.labelMedium)
+                        Text(sshSetupResult, style = MaterialTheme.typography.bodySmall)
+                    } else {
+                        Spacer(Modifier.height(8.dp))
+                        Text("Jalankan skrip ini di server VPS untuk setup otomatis:")
+                        Spacer(Modifier.height(8.dp))
+                        Text(setupScript, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
             }
         )
