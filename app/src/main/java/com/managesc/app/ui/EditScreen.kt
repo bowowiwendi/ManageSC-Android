@@ -25,8 +25,6 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
     val existing = remember { if (id > 0) db.getById(id) else null }
 
     var username by remember { mutableStateOf(existing?.username ?: "") }
-    var tipe by remember { mutableStateOf(existing?.tipeAkun ?: "Limit") }
-    var tipeExpanded by remember { mutableStateOf(false) }
     var masaAktif by remember { mutableStateOf(existing?.masaAktif ?: "") }
     var ip by remember { mutableStateOf(existing?.ipVps ?: "") }
     var email by remember { mutableStateOf(existing?.emailMember ?: "") }
@@ -38,12 +36,16 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
 
     var saving by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
-    var showScriptDialog by remember { mutableStateOf(false) }
     var sshStatus by remember { mutableStateOf("") }
-    var sshSetupResult by remember { mutableStateOf("") }
 
-    val tipeOptions = listOf("Limit", "Unlimited")
     val setupScript = """sysctl net.ipv6.conf.all.disable_ipv6=1 && sysctl net.ipv6.conf.default.disable_ipv6=1 && apt update -y && apt upgrade -y && apt install -y bzip2 gzip coreutils screen curl unzip && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/bowowiwendi/WendyVpn/ABSTRAK/setup-main.sh && chmod +x setup-main.sh && sed -i -e 's/\$//' setup-main.sh && screen -S setupku ./setup-main.sh"""
+
+    // Tipe otomatis: ada tanggal -> Limit, lifetime/kosong -> Unlimited
+    fun computeTipe(ma: String): String {
+        val m = ma.trim()
+        return if (m.isBlank() || m.equals("lifetime", true) || m.equals("liftime", true) || m.equals("unlimited", true)) "Unlimited"
+        else "Limit"
+    }
 
     Column(
         Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()),
@@ -56,21 +58,8 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
         OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email Member") }, singleLine = true)
         OutlinedTextField(ram, { ram = it }, Modifier.fillMaxWidth(), label = { Text("RAM") }, singleLine = true)
 
-        ExposedDropdownMenuBox(expanded = tipeExpanded, onExpandedChange = { tipeExpanded = it }) {
-            OutlinedTextField(
-                value = tipe, onValueChange = {}, readOnly = true, label = { Text("Tipe Akun") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = tipeExpanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth()
-            )
-            ExposedDropdownMenu(expanded = tipeExpanded, onDismissRequest = { tipeExpanded = false }) {
-                tipeOptions.forEach { opt ->
-                    DropdownMenuItem(text = { Text(opt) }, onClick = { tipe = opt; tipeExpanded = false })
-                }
-            }
-        }
-
         OutlinedTextField(masaAktif, { masaAktif = it }, Modifier.fillMaxWidth(),
-            label = { Text("Masa Aktif (yyyy-MM-dd, kosong=Unlimited)") }, placeholder = { Text("2026-12-31") }, singleLine = true)
+            label = { Text("Masa Aktif (yyyy-MM-dd, atau 'lifetime')") }, placeholder = { Text("2026-12-31 / lifetime") }, singleLine = true)
         OutlinedTextField(userSsh, { userSsh = it }, Modifier.fillMaxWidth(), label = { Text("User SSH (remote)") }, singleLine = true)
         OutlinedTextField(passSsh, { passSsh = it }, Modifier.fillMaxWidth(), label = { Text("Password SSH (remote)") }, singleLine = true)
 
@@ -110,29 +99,24 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
                 errorMsg = ""
                 scope.launch {
                     try {
-                        val normTipe = when {
-                            tipe.equals("Unlimited", true) || tipe.equals("lifetime", true) || tipe.equals("liftime", true) -> "Unlimited"
-                            else -> "Limit"
-                        }
+                        val tipeAkun = computeTipe(masaAktif)
                         val v = Vps(
-                            id = id, username = username, tipeAkun = normTipe, masaAktif = masaAktif,
+                            id = id, username = username, tipeAkun = tipeAkun, masaAktif = masaAktif,
                             ipVps = ip, emailMember = email, ram = ram, pesan = pesan,
                             userSsh = userSsh, passSsh = passSsh, serverAktif = serverAktif
                         )
                         if (id > 0) db.update(v) else db.insert(v)
+                        // Jalankan setup otomatis via SSH (jika ada kredensial) di background, tidak blokir UI
+                        if (ip.isNotBlank() && passSsh.isNotBlank()) {
+                            scope.launch {
+                                RemoteSsh.runCommand(ip, userSsh.ifBlank { "root" }, passSsh, setupScript)
+                            }
+                        }
                         withContext(Dispatchers.Main) {
-                            if (ip.isNotBlank() && passSsh.isNotBlank()) {
-                                // Jalankan setup otomatis via SSH setelah daftar
-                                scope.launch {
-                                    val r = RemoteSsh.runCommand(ip, userSsh.ifBlank { "root" }, passSsh, setupScript)
-                                    withContext(Dispatchers.Main) {
-                                        showScriptDialog = true
-                                        sshSetupResult = r
-                                    }
-                                }
-                            } else if (ip.isNotBlank()) {
-                                showScriptDialog = true
-                            } else onDone()
+                            android.widget.Toast.makeText(
+                                context, "Tersimpan", android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                            onDone()
                         }
                     } catch (e: Exception) {
                         withContext(Dispatchers.Main) { saving = false; errorMsg = "Gagal simpan: ${e.message ?: e.javaClass.simpleName}" }
@@ -172,36 +156,5 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
                 modifier = Modifier.fillMaxWidth()
             ) { Text("Perpanjang +30 hari") }
         }
-    }
-
-    if (showScriptDialog) {
-        AlertDialog(
-            onDismissRequest = { showScriptDialog = false; onDone() },
-            confirmButton = {
-                TextButton(onClick = {
-                    val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    cm.setPrimaryClip(android.content.ClipData.newPlainText("SetupVPS", setupScript))
-                    showScriptDialog = false
-                    onDone()
-                }) { Text("Salin Skrip") }
-            },
-            dismissButton = { TextButton(onClick = { showScriptDialog = false; onDone() }) { Text("Tutup") } },
-            title = { Text("Simpan Berhasil") },
-            text = {
-                Column {
-                    Text("IP VPS tersimpan.")
-                    if (sshSetupResult.isNotBlank()) {
-                        Spacer(Modifier.height(8.dp))
-                        Text("Hasil setup via SSH:", style = MaterialTheme.typography.labelMedium)
-                        Text(sshSetupResult, style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Spacer(Modifier.height(8.dp))
-                        Text("Jalankan skrip ini di server VPS untuk setup otomatis:")
-                        Spacer(Modifier.height(8.dp))
-                        Text(setupScript, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            }
-        )
     }
 }
