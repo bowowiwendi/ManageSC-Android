@@ -118,14 +118,10 @@ fun PinScreen(context: android.content.Context, onSuccess: () -> Unit) {
             Button(
                 onClick = {
                     if (hasPin) {
-                        checking = true
-                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-                            if (Prefs.verifyPin(context, pin)) onSuccess() else {
-                                error = "PIN salah"
-                                checking = false
-                                pin = ""
-                            }
-                        }, 400)
+                        if (Prefs.verifyPin(context, pin)) onSuccess() else {
+                            error = "PIN salah"
+                            pin = ""
+                        }
                     } else {
                         if (!showConfirm) {
                             if (pin.length == 6) { showConfirm = true; pinConfirm = "" }

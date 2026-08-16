@@ -51,6 +51,22 @@ fun SettingsScreen(context: android.content.Context, onLock: () -> Unit) {
             } else Text("Simpan & Sync Sekarang")
         }
 
+        OutlinedButton(onClick = {
+            Prefs.setGhToken(context, token)
+            Prefs.setGhUser(context, user)
+            Prefs.setGhRepo(context, repo)
+            Prefs.setGhPath(context, path)
+            syncing = true
+            status = "Menarik data..."
+            CoroutineScope(Dispatchers.IO).launch {
+                val result = GitHubSync.pull(context)
+                android.os.Handler(android.os.Looper.getMainLooper()).post {
+                    syncing = false
+                    status = result
+                }
+            }
+        }, enabled = !syncing) { Text("Tarik Data dari GitHub (Pull)") }
+
         if (status.isNotBlank()) Text(status, style = MaterialTheme.typography.bodySmall)
 
         Divider()

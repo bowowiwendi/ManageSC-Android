@@ -56,6 +56,22 @@ class VpsDbHelper(context: Context) :
         writableDatabase.delete(TABLE, "id = ?", arrayOf(id.toString()))
     }
 
+    fun replaceAll(list: List<Vps>) {
+        val db = writableDatabase
+        db.beginTransaction()
+        try {
+            db.delete(TABLE, null, null)
+            for (v in list) {
+                val cv = v.toValues()
+                cv.remove("id")
+                db.insert(TABLE, null, cv)
+            }
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
     fun getAll(): List<Vps> {
         val list = mutableListOf<Vps>()
         readableDatabase.query(

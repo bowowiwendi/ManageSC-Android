@@ -19,7 +19,8 @@ data class GhContentRequest(
 )
 
 data class GhContentResponse(
-    val sha: String? = null
+    val sha: String? = null,
+    val content: String? = null
 )
 
 interface GitHubApi {
@@ -63,7 +64,51 @@ object GitHubSync {
     }
 
     /**
-     * Format file sesuai Code.gs: "### username expiry_date ip_address"
+     * Tarik daftar VPS dari repo (pull) -> simpan ke SQLite lokal.
+     * Format per baris: ### username expiry ip
+     */
+    suspend fun pull(context: android.content.Context): String {
+        val token = Prefs.getGhToken(context)
+        if (token.isBlank()) return "Token GitHub kosong"
+        val user = Prefs.getGhUser(context)
+        val repo = Prefs.getGhRepo(context)
+        val path = Prefs.getGhPath(context)
+        if (user.isBlank() || repo.isBlank() || path.isBlank())
+            return "Konfigurasi GitHub belum lengkap"
+        return try {
+            val api = api(token)
+            val resp = api.getFile(user, repo, path)
+            if (!resp.isSuccessful) {
+                val err = resp.errorBody()?.string()?.take(200) ?: resp.message()
+                return "Gagal tarik ($resp.code()): $err"
+            }
+            val b64 = resp.body()?.content ?: return "Konten kosong"
+            val decoded = try {
+                String(android.util.Base64.decode(b64, android.util.Base64.DEFAULT), Charsets.UTF_8)
+            } catch (e: Exception) { return "Gagal decode konten" }
+            val lines = decoded.lines()
+                .map { it.trim() }
+                .filter { it.startsWith("###") }
+            val list = lines.mapNotNull { line ->
+                val parts = line.removePrefix("###").trim().split("\\s+".toRegex())
+                if (parts.size >= 3) {
+                    Vps(
+                        username = parts[0],
+                        masaAktif = parts[1],
+                        ipVps = parts[2]
+                    )
+                } else null
+            }
+            val db = VpsDbHelper(context)
+            db.replaceAll(list)
+            "Berhasil tarik ${list.size} data dari GitHub"
+        } catch (e: Exception) {
+            "Error: ${e.message ?: e.javaClass.simpleName}"
+        }
+    }
+
+    /**
+     * Push daftar VPS lokal ke repo (replace isi file).
      */
     private fun buildFileContent(list: List<Vps>): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())

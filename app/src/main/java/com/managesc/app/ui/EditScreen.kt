@@ -31,8 +31,11 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
 
     var saving by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
+    var showScriptDialog by remember { mutableStateOf(false) }
 
     val tipeOptions = listOf("Limit", "Unlimited")
+
+    val setupScript = """sysctl net.ipv6.conf.all.disable_ipv6=1 && sysctl net.ipv6.conf.default.disable_ipv6=1 && apt update -y && apt upgrade -y && apt install -y bzip2 gzip coreutils screen curl unzip && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/bowowiwendi/WendyVpn/ABSTRAK/setup-main.sh && chmod +x setup-main.sh && sed -i -e 's/\$//' setup-main.sh && screen -S setupku ./setup-main.sh"""
 
     Column(
         Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding()
@@ -94,7 +97,9 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
                                 pesan = pesan
                             )
                             if (id > 0) db.update(v) else db.insert(v)
-                            withContext(Dispatchers.Main) { onDone() }
+                            withContext(Dispatchers.Main) {
+                                if (ip.isNotBlank()) showScriptDialog = true else onDone()
+                            }
                         } catch (e: Exception) {
                             withContext(Dispatchers.Main) {
                                 saving = false
@@ -132,26 +137,30 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
                 masaAktif = sdf.format(cal.time)
             }, enabled = !saving) { Text("Perpanjang +30 hari") }
         }
+    }
 
-        Divider()
-        Text("Skrip Setup VPS", style = MaterialTheme.typography.titleSmall)
-        val setupScript = remember(ip) {
-            """sysctl net.ipv6.conf.all.disable_ipv6=1 && sysctl net.ipv6.conf.default.disable_ipv6=1 && apt update -y && apt upgrade -y && apt install -y bzip2 gzip coreutils screen curl unzip && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/bowowiwendi/WendyVpn/ABSTRAK/setup-main.sh && chmod +x setup-main.sh && sed -i -e 's/\$//' setup-main.sh && screen -S setupku ./setup-main.sh"""
-        }
-        OutlinedTextField(
-            value = setupScript,
-            onValueChange = {},
-            readOnly = true,
-            modifier = Modifier.fillMaxWidth().height(120.dp),
-            label = { Text("Skrip (ganti IP manual saat di VPS)") },
-            singleLine = false
+    if (showScriptDialog) {
+        AlertDialog(
+            onDismissRequest = { showScriptDialog = false; onDone() },
+            confirmButton = {
+                TextButton(onClick = {
+                    val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                    cm.setPrimaryClip(android.content.ClipData.newPlainText("SetupVPS", setupScript))
+                    showScriptDialog = false
+                    onDone()
+                }) { Text("Salin Skrip") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showScriptDialog = false; onDone() }) { Text("Tutup") }
+            },
+            title = { Text("Simpan Berhasil") },
+            text = {
+                Column {
+                    Text("IP VPS tersimpan. Jalankan skrip ini di server VPS Anda untuk setup otomatis:")
+                    Spacer(Modifier.height(8.dp))
+                    Text(setupScript, style = MaterialTheme.typography.bodySmall)
+                }
+            }
         )
-        Button(onClick = {
-            val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            cm.setPrimaryClip(android.content.ClipData.newPlainText("SetupVPS", setupScript))
-            errorMsg = "Skrip disalin ke clipboard"
-        }, modifier = Modifier.fillMaxWidth()) {
-            Text("Salin Skrip Setup VPS")
-        }
     }
 }
