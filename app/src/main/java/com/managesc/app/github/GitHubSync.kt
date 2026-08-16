@@ -7,9 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.Body
-import retrofit2.http.Headers
-import retrofit2.http.Put
+import retrofit2.http.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -35,7 +33,7 @@ interface GitHubApi {
     ): retrofit2.Response<GhContentResponse>
 
     @Headers("Accept: application/vnd.github+json")
-    @Put("repos/{user}/{repo}/contents/{path}")
+    @retrofit2.http.PUT("repos/{user}/{repo}/contents/{path}")
     suspend fun putFile(
         @retrofit2.http.Path("user") user: String,
         @retrofit2.http.Path("repo") repo: String,
