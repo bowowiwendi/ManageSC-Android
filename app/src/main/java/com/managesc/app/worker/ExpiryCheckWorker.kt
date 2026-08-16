@@ -14,9 +14,7 @@ import androidx.work.WorkerParameters
 import com.managesc.app.MainActivity
 import com.managesc.app.R
 import com.managesc.app.data.VpsDbHelper
-import java.text.SimpleDateFormat
-import java.util.Calendar
-import java.util.Locale
+import com.managesc.app.ui.expiryInfo
 import java.util.concurrent.TimeUnit
 
 class ExpiryCheckWorker(ctx: Context, params: WorkerParameters) :
@@ -28,18 +26,14 @@ class ExpiryCheckWorker(ctx: Context, params: WorkerParameters) :
     }
 
     private fun checkExpiry(context: Context) {
-        val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val today = Calendar.getInstance()
         val list = VpsDbHelper(context).getAll()
         val expiring = mutableListOf<String>()
         for (v in list) {
-            try {
-                val exp = sdf.parse(v.masaAktif) ?: continue
-                val diff = ((exp.time - today.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
-                if (diff in 0..7) {
-                    expiring.add("${v.username} (${v.ipVps}) — ${if (diff == 0) "hari ini" else "$diff hari lagi"}")
-                }
-            } catch (_: Exception) { }
+            if (v.tipeAkun.equals("Unlimited", true) || v.masaAktif.isBlank()) continue
+            val info = expiryInfo(v)
+            if (info.days in 0..7) {
+                expiring.add("${v.username} (${v.ipVps}) — ${if (info.days == 0) "hari ini" else "${info.days} hari lagi"}")
+            }
         }
         if (expiring.isNotEmpty()) showNotification(context, expiring)
     }

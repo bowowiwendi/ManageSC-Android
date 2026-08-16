@@ -10,11 +10,14 @@ data class Vps(
     val id: Long = 0,
     val username: String = "",
     val tipeAkun: String = "",
-    val masaAktif: String = "",   // tanggal kedaluwarsa, format yyyy-MM-dd
+    val masaAktif: String = "",   // tanggal kedaluwarsa, format yyyy-MM-dd (kosong untuk Unlimited)
     val ipVps: String = "",
     val emailMember: String = "",
     val ram: String = "",
-    val pesan: String = ""
+    val pesan: String = "",
+    val userSsh: String = "",
+    val passSsh: String = "",
+    val serverAktif: Boolean = true
 )
 
 class VpsDbHelper(context: Context) :
@@ -30,7 +33,10 @@ class VpsDbHelper(context: Context) :
                 ip_vps TEXT,
                 email_member TEXT,
                 ram TEXT,
-                pesan TEXT
+                pesan TEXT,
+                user_ssh TEXT,
+                pass_ssh TEXT,
+                server_aktif INTEGER DEFAULT 1
             )"""
         )
     }
@@ -99,6 +105,9 @@ class VpsDbHelper(context: Context) :
         put("email_member", emailMember)
         put("ram", ram)
         put("pesan", pesan)
+        put("user_ssh", userSsh)
+        put("pass_ssh", passSsh)
+        put("server_aktif", if (serverAktif) 1 else 0)
     }
 
     private fun Cursor.toVps() = Vps(
@@ -109,12 +118,15 @@ class VpsDbHelper(context: Context) :
         ipVps = getString(getColumnIndexOrThrow("ip_vps")) ?: "",
         emailMember = getString(getColumnIndexOrThrow("email_member")) ?: "",
         ram = getString(getColumnIndexOrThrow("ram")) ?: "",
-        pesan = getString(getColumnIndexOrThrow("pesan")) ?: ""
+        pesan = getString(getColumnIndexOrThrow("pesan")) ?: "",
+        userSsh = getString(getColumnIndexOrThrow("user_ssh")) ?: "",
+        passSsh = getString(getColumnIndexOrThrow("pass_ssh")) ?: "",
+        serverAktif = getInt(getColumnIndexOrThrow("server_aktif")) == 1
     )
 
     companion object {
         const val DB_NAME = "managesc.db"
-        const val DB_VERSION = 1
+        const val DB_VERSION = 2
         const val TABLE = "vps"
     }
 }

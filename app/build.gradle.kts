@@ -60,5 +60,6 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.converter.gson)
     implementation(libs.okhttp.logging)
+    implementation(libs.jsch)
     debugImplementation(libs.androidx.ui.tooling)
 }

@@ -1,12 +1,16 @@
 package com.managesc.app.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.managesc.app.data.Vps
 import com.managesc.app.data.VpsDbHelper
@@ -37,14 +41,26 @@ fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit) {
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(filtered, key = { it.id }) { v ->
                 Card(Modifier.fillMaxWidth().clickable { onEdit(v.id) }) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(v.username, style = MaterialTheme.typography.titleMedium)
-                        Text("IP: ${v.ipVps}", style = MaterialTheme.typography.bodySmall)
-                        Text("Tipe: ${v.tipeAkun} • RAM: ${v.ram}", style = MaterialTheme.typography.bodySmall)
-                        val days = expiryDays(v.masaAktif)
-                        val color = if (days <= 7) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
-                        Text("Kadaluarsa: ${v.masaAktif} (${if (days<0) "lewat" else "$days hari"})",
-                            style = MaterialTheme.typography.bodySmall, color = color)
+                    Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        // Lampu status
+                        Box(
+                            Modifier.size(12.dp).clip(CircleShape).background(
+                                if (v.serverAktif) Color(0xFF4CAF50) else Color(0xFF9E9E9E)
+                            )
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(v.username, style = MaterialTheme.typography.titleMedium)
+                            Text("IP: ${v.ipVps}", style = MaterialTheme.typography.bodySmall)
+                            Text("Tipe: ${v.tipeAkun} • RAM: ${v.ram}", style = MaterialTheme.typography.bodySmall)
+                            val info = expiryInfo(v)
+                            val color = when {
+                                v.tipeAkun.equals("Unlimited", true) -> MaterialTheme.colorScheme.primary
+                                info.days <= 7 -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurface
+                            }
+                            Text(info.text, style = MaterialTheme.typography.bodySmall, color = color)
+                        }
                     }
                 }
             }
@@ -53,10 +69,18 @@ fun ListScreen(context: android.content.Context, onEdit: (Long) -> Unit) {
     }
 }
 
-fun expiryDays(dateStr: String): Int {
+data class ExpiryInfo(val days: Int, val text: String)
+
+fun expiryInfo(v: Vps): ExpiryInfo {
+    if (v.tipeAkun.equals("Unlimited", true) || v.masaAktif.isBlank()) {
+        return ExpiryInfo(Int.MAX_VALUE, "Unlimited (tidak kadaluarsa)")
+    }
     return try {
         val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val exp = sdf.parse(dateStr) ?: return -1
-        ((exp.time - Calendar.getInstance().timeInMillis) / (1000*60*60*24)).toInt()
-    } catch (_: Exception) { -1 }
+        val exp = sdf.parse(v.masaAktif) ?: return ExpiryInfo(-1, "Kadaluarsa: ${v.masaAktif}")
+        val days = ((exp.time - Calendar.getInstance().timeInMillis) / (1000*60*60*24)).toInt()
+        ExpiryInfo(days, "Kadaluarsa: ${v.masaAktif} (${if (days<0) "lewat" else "$days hari"})")
+    } catch (_: Exception) {
+        ExpiryInfo(-1, "Kadaluarsa: ${v.masaAktif}")
+    }
 }

@@ -6,7 +6,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
@@ -22,15 +21,16 @@ import com.managesc.app.data.Prefs
 @Composable
 fun AppNav(
     context: android.content.Context,
-    locked: Boolean,
-    onUnlock: () -> Unit,
-    onLock: () -> Unit
+    onLockRequest: () -> Unit
 ) {
+    var locked by remember { mutableStateOf(!Prefs.hasPin(context)) }
     val nav = rememberNavController()
+
     if (locked) {
-        PinScreen(context = context, onSuccess = onUnlock)
+        PinScreen(context = context, onSuccess = { locked = false })
         return
     }
+
     Scaffold(
         bottomBar = {
             NavigationBar {
@@ -71,7 +71,7 @@ fun AppNav(
                 EditScreen(context = context, id = id, onDone = { nav.navigate("list") { popUpTo("list") { inclusive = true } } })
             }
             composable("settings") {
-                SettingsScreen(context = context, onLock = onLock)
+                SettingsScreen(context = context, onLock = { locked = true })
             }
         }
     }
@@ -85,7 +85,6 @@ fun PinScreen(context: android.content.Context, onSuccess: () -> Unit) {
     var pinConfirm by remember { mutableStateOf("") }
     var showConfirm by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
-    var checking by remember { mutableStateOf(false) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         Column(
@@ -118,10 +117,7 @@ fun PinScreen(context: android.content.Context, onSuccess: () -> Unit) {
             Button(
                 onClick = {
                     if (hasPin) {
-                        if (Prefs.verifyPin(context, pin)) onSuccess() else {
-                            error = "PIN salah"
-                            pin = ""
-                        }
+                        if (Prefs.verifyPin(context, pin)) onSuccess() else { error = "PIN salah"; pin = "" }
                     } else {
                         if (!showConfirm) {
                             if (pin.length == 6) { showConfirm = true; pinConfirm = "" }
@@ -131,27 +127,20 @@ fun PinScreen(context: android.content.Context, onSuccess: () -> Unit) {
                                 Prefs.setPin(context, pin)
                                 onSuccess()
                             } else if (pinConfirm.length == 6) {
-                                error = "PIN tidak cocok"
-                                pinConfirm = ""
+                                error = "PIN tidak cocok"; pinConfirm = ""
                             } else error = "PIN harus 6 digit"
                         }
                     }
                 },
-                enabled = !checking,
                 modifier = Modifier.fillMaxWidth(0.7f)
             ) {
-                if (checking) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text(if (hasPin) "Masuk" else if (showConfirm) "Konfirmasi" else "Simpan PIN")
-                }
+                Text(if (hasPin) "Masuk" else if (showConfirm) "Konfirmasi" else "Simpan PIN")
             }
             if (hasPin) {
                 Spacer(Modifier.height(12.dp))
                 TextButton(onClick = {
                     Prefs.clearPin(context)
-                    android.os.Process.killProcess(android.os.Process.myPid())
+                    Process.killProcess(Process.myPid())
                 }) {
                     Text("Lupa PIN? Reset (hapus semua data VPS)")
                 }
