@@ -35,20 +35,20 @@ import java.io.InputStream
 fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val vps = remember { VpsDbHelper(context).getById(id) }
+    // Warna yang dipakai di luar scope composable (dalam fungsi connect/send)
+    val colorErr = MaterialTheme.colorScheme.error
+    val colorTertiary = MaterialTheme.colorScheme.tertiary
+    val colorOk = Color(0xFF2E7D32)
+    val density = LocalDensity.current
     var connected by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Belum terhubung") }
-    var statusColor by remember { mutableStateOf(MaterialTheme.colorScheme.error) }
+    var statusColor by remember { mutableStateOf(colorErr) }
     var lines by remember { mutableStateOf<List<AnnotatedString>>(emptyList()) }
     var input by remember { mutableStateOf(TextFieldValue("")) }
     var shell by remember { mutableStateOf<RemoteSsh.ShellSession?>(null) }
     val listState = rememberLazyListState()
     var termRows by remember { mutableStateOf(24) }
     var termCols by remember { mutableStateOf(80) }
-
-    // Warna yang dipakai di luar scope composable (dalam fungsi connect/send)
-    val colorErr = MaterialTheme.colorScheme.error
-    val colorTertiary = MaterialTheme.colorScheme.tertiary
-    val colorOk = Color(0xFF2E7D32)
 
     fun connect() {
         if (vps == null) { status = "Data VPS tidak ditemukan"; return }
@@ -108,7 +108,6 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
             state = listState,
             modifier = Modifier.fillMaxWidth().weight(1f).background(Color(0xFF0D1117)).padding(8.dp)
                 .onSizeChanged { size ->
-                    val density = LocalDensity.current
                     val rows = (size.height / with(density) { 14.sp.toPx() }).toInt().coerceAtLeast(8)
                     val cols = (size.width / with(density) { 7.2.dp.toPx() }).toInt().coerceAtLeast(20)
                     termRows = rows; termCols = cols
