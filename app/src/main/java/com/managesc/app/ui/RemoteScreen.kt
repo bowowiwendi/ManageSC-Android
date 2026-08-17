@@ -68,9 +68,33 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
                 launch(Dispatchers.IO) {
                     val buf = ByteArray(4096)
                     val acc = StringBuilder()
+                    var autoReconnect = true
                     while (true) {
                         val n = try { s.output.read(buf) } catch (e: Exception) { -1 }
-                        if (n <= 0) { if (!s.channel.isConnected) break else continue }
+                        if (n <= 0) {
+                            if (!s.channel.isConnected) {
+                                // coba reconnect 1x otomatis (cegah putus sesaat)
+                                if (autoReconnect) {
+                                    autoReconnect = false
+                                    withContext(Dispatchers.Main) { status = "Koneksi terputus, menyambung ulang..."; statusColor = colorTertiary }
+                                    try {
+                                        val ns = RemoteSsh.openShell(vps.ipVps, vps.userSsh, vps.passSsh, 22)
+                                        shell = ns
+                                        withContext(Dispatchers.Main) {
+                                            status = "● Terhubung (port 22) — ${vps.ipVps}"
+                                            statusColor = colorOk
+                                        }
+                                        continue
+                                    } catch (e: Exception) {
+                                        withContext(Dispatchers.Main) { connected = false; status = "Koneksi tertutup"; statusColor = colorErr }
+                                        break
+                                    }
+                                } else {
+                                    withContext(Dispatchers.Main) { connected = false; status = "Koneksi tertutup"; statusColor = colorErr }
+                                    break
+                                }
+                            } else continue
+                        }
                         val chunk = String(buf, 0, n, Charsets.UTF_8)
                         acc.append(chunk)
                         if (chunk.contains('\n') || acc.length > 512) {
@@ -82,7 +106,6 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
                             }
                         }
                     }
-                    withContext(Dispatchers.Main) { connected = false; status = "Koneksi tertutup"; statusColor = colorErr }
                 }
             } catch (e: Exception) {
                 status = "Gagal: ${e.message}"; statusColor = colorErr
@@ -139,14 +162,35 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
         Row(Modifier.fillMaxWidth().padding(8.dp)) {
             BasicTextField(
                 value = input,
-                onValueChange = { input = it },
+                onValueChange = { nv ->
+                    // kirim langsung ke CLI per ketikan (streaming), bukan nunggu tombol Kirim
+                    val old = input.text
+                    val nw = nv.text
+                    when {
+                        nw.startsWith(old) -> {
+                            val added = nw.substring(old.length)
+                            if (added.isNotEmpty()) send(added)
+                        }
+                        old.startsWith(nw) -> {
+                            // backspace: kirim DEL (\u007f) sebanyak karakter yang dihapus
+                            val del = old.length - nw.length
+                            repeat(del) { send("\u007f") }
+                        }
+                        else -> {
+                            // perubahan tidak berurutan (paste/hapus tengah): kirim ulang sisa baris
+                            send("\u0015") // Ctrl+U hapus baris
+                            send(nw)
+                        }
+                    }
+                    input = nv
+                },
                 modifier = Modifier.fillMaxWidth().weight(1f).background(Color(0xFF161B22)).padding(8.dp),
                 textStyle = androidx.compose.ui.text.TextStyle(
                     fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = Color.White
                 )
             )
             Spacer(Modifier.width(8.dp))
-            Button(onClick = { send(input.text + "\n"); input = TextFieldValue("") }) { Text("Kirim") }
+            Button(onClick = { send("\n"); input = TextFieldValue("") }) { Text("⏎ Enter") }
         }
     }
 }

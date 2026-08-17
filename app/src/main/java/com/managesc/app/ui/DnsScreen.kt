@@ -9,6 +9,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.content.Context
 import com.managesc.app.cloudflare.*
 import com.managesc.app.data.Prefs
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +30,18 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
     var showAdd by remember { mutableStateOf(false) }
 
     fun cfgOk() = Prefs.getCfEmail(context).isNotBlank() && Prefs.getCfKey(context).isNotBlank()
+
+    fun hasInternet(): Boolean {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val n = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(n) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
+    // Auto-load domain saat layar dibuka: hanya kalau ada internet & kredensial CF terisi
+    LaunchedEffect(Unit) {
+        if (cfgOk() && hasInternet()) loadZones() else if (!cfgOk()) status = "Setel Email & Global API Key di menu Stelan dulu"
+    }
 
     fun loadZones() {
         if (!cfgOk()) { status = "Setel Email & Global API Key di menu Stelan dulu"; return }

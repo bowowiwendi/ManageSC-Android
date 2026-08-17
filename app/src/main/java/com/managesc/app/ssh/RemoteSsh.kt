@@ -89,6 +89,8 @@ object RemoteSsh {
             session.setPassword(pass)
             session.setConfig("StrictHostKeyChecking", "no")
             session.timeout = 15000
+            session.setServerAliveInterval(15000)   // kirim heartbeat tiap 15s cegah putus idle
+            session.setServerAliveCountMax(3)
             session.connect()
             val channel = session.openChannel("shell") as com.jcraft.jsch.ChannelShell
             channel.setPty(true)
