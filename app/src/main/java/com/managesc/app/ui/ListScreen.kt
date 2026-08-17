@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.managesc.app.data.Vps
 import com.managesc.app.data.VpsDbHelper
+import com.managesc.app.ssh.RemoteSsh
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext

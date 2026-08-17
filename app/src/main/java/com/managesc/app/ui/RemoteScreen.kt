@@ -19,6 +19,8 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardActions
+import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,7 +35,7 @@ import java.io.InputStream
 @Composable
 fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
-    val vps = remember { VpsDbHelper.get(context, id) }
+    val vps = remember { VpsDbHelper(context).getById(id) }
     var connected by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Belum terhubung") }
     var statusColor by remember { mutableStateOf(MaterialTheme.colorScheme.error) }

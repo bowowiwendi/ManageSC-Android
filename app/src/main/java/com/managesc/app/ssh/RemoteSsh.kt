@@ -96,9 +96,8 @@ object RemoteSsh {
             channel.inputStream = null
             val out = channel.outputStream   // kita tulis keyboard ke sini
             val inStream = channel.inputStream
-            val errStream = channel.errStream
             channel.connect(5000)
-            ShellSession(session, channel, out, inStream, errStream)
+            ShellSession(session, channel, out, inStream, inStream)
         }
     }
 }
