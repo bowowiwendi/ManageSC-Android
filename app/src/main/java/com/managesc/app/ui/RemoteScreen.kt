@@ -45,21 +45,26 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
     var termRows by remember { mutableStateOf(24) }
     var termCols by remember { mutableStateOf(80) }
 
+    // Warna yang dipakai di luar scope composable (dalam fungsi connect/send)
+    val colorErr = MaterialTheme.colorScheme.error
+    val colorTertiary = MaterialTheme.colorScheme.tertiary
+    val colorOk = Color(0xFF2E7D32)
+
     fun connect() {
         if (vps == null) { status = "Data VPS tidak ditemukan"; return }
         if (vps.userSsh.isBlank() || vps.passSsh.isBlank()) {
             status = "User/Password SSH kosong — isi di edit VPS"
-            statusColor = MaterialTheme.colorScheme.error
+            statusColor = colorErr
             return
         }
-        status = "Menghubungkan ke ${vps.ipVps} ..."; statusColor = MaterialTheme.colorScheme.tertiary
+        status = "Menghubungkan ke ${vps.ipVps} ..."; statusColor = colorTertiary
         scope.launch {
             try {
                 val s = RemoteSsh.openShell(vps.ipVps, vps.userSsh, vps.passSsh, 22)
                 shell = s
                 connected = true
                 status = "● Terhubung (port 22) — ${vps.ipVps}"
-                statusColor = Color(0xFF2E7D32)
+                statusColor = colorOk
                 launch(Dispatchers.IO) {
                     val buf = ByteArray(4096)
                     val acc = StringBuilder()
@@ -77,10 +82,10 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
                             }
                         }
                     }
-                    withContext(Dispatchers.Main) { connected = false; status = "Koneksi tertutup"; statusColor = MaterialTheme.colorScheme.error }
+                    withContext(Dispatchers.Main) { connected = false; status = "Koneksi tertutup"; statusColor = colorErr }
                 }
             } catch (e: Exception) {
-                status = "Gagal: ${e.message}"; statusColor = MaterialTheme.colorScheme.error
+                status = "Gagal: ${e.message}"; statusColor = colorErr
             }
         }
     }
