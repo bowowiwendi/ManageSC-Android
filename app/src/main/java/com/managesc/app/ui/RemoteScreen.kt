@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -19,8 +20,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.input.KeyboardActions
-import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,10 +139,6 @@ fun RemoteScreen(context: android.content.Context, id: Long, onBack: () -> Unit)
                 modifier = Modifier.fillMaxWidth().weight(1f).background(Color(0xFF161B22)).padding(8.dp),
                 textStyle = androidx.compose.ui.text.TextStyle(
                     fontFamily = FontFamily.Monospace, fontSize = 13.sp, color = Color.White
-                ),
-                keyboardOptions = androidx.compose.ui.text.input.KeyboardOptions(autoCorrect = false),
-                keyboardActions = androidx.compose.ui.text.input.KeyboardActions(
-                    onSend = { send(input.text + "\n"); input = TextFieldValue("") }
                 )
             )
             Spacer(Modifier.width(8.dp))
