@@ -38,11 +38,6 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    // Auto-load domain saat layar dibuka: hanya kalau ada internet & kredensial CF terisi
-    LaunchedEffect(Unit) {
-        if (cfgOk() && hasInternet()) loadZones() else if (!cfgOk()) status = "Setel Email & Global API Key di menu Stelan dulu"
-    }
-
     fun loadZones() {
         if (!cfgOk()) { status = "Setel Email & Global API Key di menu Stelan dulu"; return }
         val email = Prefs.getCfEmail(context); val key = Prefs.getCfKey(context)
@@ -86,6 +81,11 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
                 withContext(Dispatchers.Main) { status = "Error: ${e.message}"; loading = false }
             }
         }
+    }
+
+    // Auto-load domain saat layar dibuka: hanya kalau ada internet & kredensial CF terisi
+    LaunchedEffect(Unit) {
+        if (cfgOk() && hasInternet()) loadZones() else if (!cfgOk()) status = "Setel Email & Global API Key di menu Stelan dulu"
     }
 
     Column(Modifier.fillMaxSize().padding(12.dp).imePadding()) {
