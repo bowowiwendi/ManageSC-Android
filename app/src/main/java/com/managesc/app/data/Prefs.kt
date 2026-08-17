@@ -15,6 +15,7 @@ object Prefs {
     private const val KEY_GH_ENABLED = "gh_enabled"
     private const val KEY_CF_EMAIL = "cf_email"
     private const val KEY_CF_KEY = "cf_global_key"
+    private const val KEY_THEME = "theme_preference"
 
     private fun sp(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
@@ -58,4 +59,8 @@ object Prefs {
     fun setCfEmail(ctx: Context, v: String) = sp(ctx).edit { putString(KEY_CF_EMAIL, v) }
     fun getCfKey(ctx: Context) = sp(ctx).getString(KEY_CF_KEY, "") ?: ""
     fun setCfKey(ctx: Context, v: String) = sp(ctx).edit { putString(KEY_CF_KEY, v) }
+
+    // Tema: "light" | "dark" | "system"
+    fun getTheme(ctx: Context) = sp(ctx).getString(KEY_THEME, "system") ?: "system"
+    fun setTheme(ctx: Context, v: String) = sp(ctx).edit { putString(KEY_THEME, v) }
 }

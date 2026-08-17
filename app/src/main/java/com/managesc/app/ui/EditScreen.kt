@@ -38,7 +38,7 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
     var errorMsg by remember { mutableStateOf("") }
     var sshStatus by remember { mutableStateOf("") }
 
-    val setupScript = """sysctl net.ipv6.conf.all.disable_ipv6=1 && sysctl net.ipv6.conf.default.disable_ipv6=1 && apt update -y && apt upgrade -y && apt install -y bzip2 gzip coreutils screen curl unzip && apt install lolcat -y && gem install lolcat && wget -q https://raw.githubusercontent.com/bowowiwendi/WendyVpn/ABSTRAK/setup-main.sh && chmod +x setup-main.sh && sed -i -e 's/\$//' setup-main.sh && screen -S setupku ./setup-main.sh"""
+    val setupScript = com.managesc.app.Constants.SETUP_SCRIPT
 
     // Tipe otomatis: ada tanggal -> Limit, lifetime/kosong -> Unlimited
     fun computeTipe(ma: String): String {
@@ -48,7 +48,7 @@ fun EditScreen(context: android.content.Context, id: Long, onDone: () -> Unit) {
     }
 
     Column(
-        Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()),
+        Modifier.fillMaxSize().padding(16.dp).imePadding().verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(if (id > 0) "Edit VPS" else "Tambah VPS", style = MaterialTheme.typography.headlineSmall)

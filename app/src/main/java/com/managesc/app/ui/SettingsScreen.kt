@@ -15,7 +15,7 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(context: android.content.Context, onLock: () -> Unit) {
+fun SettingsScreen(context: android.content.Context, onLock: () -> Unit, onThemeChange: (String) -> Unit) {
     var token by remember { mutableStateOf(Prefs.getGhToken(context)) }
     var user by remember { mutableStateOf(Prefs.getGhUser(context)) }
     var repo by remember { mutableStateOf(Prefs.getGhRepo(context)) }
@@ -23,8 +23,23 @@ fun SettingsScreen(context: android.content.Context, onLock: () -> Unit) {
     var status by remember { mutableStateOf("") }
     var syncing by remember { mutableStateOf(false) }
     var newPin by remember { mutableStateOf("") }
+    var themeSel by remember { mutableStateOf(Prefs.getTheme(context)) }
 
-    Column(Modifier.fillMaxSize().padding(16.dp).navigationBarsPadding().imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxSize().padding(16.dp).imePadding().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Tema", style = MaterialTheme.typography.titleLarge)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val opts = listOf("system" to "Sistem", "light" to "Terang", "dark" to "Gelap")
+            opts.forEach { (value, label) ->
+                val selected = themeSel == value
+                OutlinedButton(
+                    onClick = { themeSel = value; Prefs.setTheme(context, value); onThemeChange(value) },
+                    modifier = Modifier.weight(1f),
+                    colors = if (selected) ButtonDefaults.outlinedButtonColors(containerColor = MaterialTheme.colorScheme.primaryContainer) else ButtonDefaults.outlinedButtonColors()
+                ) { Text(label) }
+            }
+        }
+
+        Divider()
         Text("Pengaturan GitHub Sync", style = MaterialTheme.typography.titleLarge)
 
         OutlinedTextField(token, { token = it }, Modifier.fillMaxWidth(), label = { Text("GitHub Token (PAT)") }, singleLine = false)

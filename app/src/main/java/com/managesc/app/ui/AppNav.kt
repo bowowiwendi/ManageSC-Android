@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Public
 import com.managesc.app.data.Prefs
+import com.managesc.app.MainActivity
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,12 +49,6 @@ fun AppNav(
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = { nav.navigate("settings") },
-                    icon = { Icon(Icons.Filled.Settings, contentDescription = "Setelan") },
-                    label = { Text("Setelan") }
-                )
-                NavigationBarItem(
-                    selected = false,
                     onClick = { nav.navigate("dns") },
                     icon = { Icon(Icons.Filled.Public, contentDescription = "DNS") },
                     label = { Text("DNS") }
@@ -67,7 +62,7 @@ fun AppNav(
             modifier = Modifier.padding(padding)
         ) {
             composable("list") {
-                ListScreen(context = context, onEdit = { id -> nav.navigate("edit/$id") }, onRemote = { id -> nav.navigate("remote/$id") })
+                ListScreen(context = context, onEdit = { id -> nav.navigate("edit/$id") }, onRemote = { id -> nav.navigate("remote/$id") }, onSettings = { nav.navigate("settings") })
             }
             composable("add") {
                 EditScreen(context = context, id = 0L, onDone = { nav.navigate("list") { popUpTo("list") { inclusive = true } } })
@@ -81,7 +76,9 @@ fun AppNav(
                 RemoteScreen(context = context, id = id, onBack = { nav.popBackStack() })
             }
             composable("settings") {
-                SettingsScreen(context = context, onLock = { locked = true })
+                SettingsScreen(context = context, onLock = { locked = true }, onThemeChange = { pref ->
+                    (context as? MainActivity)?.applyTheme(pref)
+                })
             }
             composable("dns") {
                 DnsScreen(context = context, onBack = { nav.popBackStack() })

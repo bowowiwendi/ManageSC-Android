@@ -73,7 +73,7 @@ fun DnsScreen(context: android.content.Context, onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().padding(12.dp).navigationBarsPadding().imePadding()) {
+    Column(Modifier.fillMaxSize().padding(12.dp).imePadding()) {
         Text("Kelola DNS Cloudflare", style = MaterialTheme.typography.titleMedium)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth()) {

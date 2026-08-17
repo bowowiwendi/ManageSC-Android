@@ -57,4 +57,48 @@ object RemoteSsh {
             }
         }
     }
+
+    /**
+     * Buka shell interaktif dengan PTY (seperti Termius).
+     * Mengembalikan ShellSession yang bisa di-write (keyboard) dan di-read (output stream).
+     */
+    data class ShellSession(
+        val session: Session,
+        val channel: com.jcraft.jsch.ChannelShell,
+        val input: java.io.OutputStream,   // tulis ke shell (keyboard)
+        val output: java.io.InputStream,    // baca dari shell (terminal)
+        val err: java.io.InputStream
+    )
+
+    /** Update ukuran PTY (cols x rows) saat layar/keyboard berubah. */
+    fun resizeShell(shell: ShellSession, cols: Int, rows: Int) {
+        try {
+            shell.channel.setPtySize(cols, rows, 0, 0)
+        } catch (_: Exception) {}
+    }
+
+    /** Jalankan skrip setup VPS sekali jalan (exec channel) — untuk tombol Setup Otomatis. */
+    suspend fun runSetup(host: String, user: String, pass: String, script: String, port: Int = 22): String {
+        return runCommand(host, user, pass, script, port)
+    }
+
+    suspend fun openShell(host: String, user: String, pass: String, port: Int = 22): ShellSession {
+        return withContext(Dispatchers.IO) {
+            val jsch = JSch()
+            val session = jsch.getSession(user, host, port)
+            session.setPassword(pass)
+            session.setConfig("StrictHostKeyChecking", "no")
+            session.timeout = 15000
+            session.connect()
+            val channel = session.openChannel("shell") as com.jcraft.jsch.ChannelShell
+            channel.setPty(true)
+            channel.setPtyType("xterm", 80, 24, 0, 0)
+            channel.inputStream = null
+            val out = channel.outputStream   // kita tulis keyboard ke sini
+            val inStream = channel.inputStream
+            val errStream = channel.errStream
+            channel.connect(5000)
+            ShellSession(session, channel, out, inStream, errStream)
+        }
+    }
 }
