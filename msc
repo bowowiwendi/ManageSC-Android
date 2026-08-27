@@ -616,7 +616,141 @@ def tui_main():
     except KeyboardInterrupt:
         pass
     except Exception as e:  # noqa
-        print("TUI gagal:", e)
+        print("TUI curses tidak tersedia (%s). Fallback ke menu teks." % e)
+        text_menu_main()
+
+
+def text_menu_main():
+    def ask(p, d=""):
+        v = input(f"{p} [{d}]: ").strip()
+        return v or d
+
+    def do_add():
+        u = ask("Username")
+        t = ask("Tipe (limit/unli)")
+        if t not in ("limit", "unli"):
+            print("Tipe harus limit/unli"); return
+        ma = ask("Masa aktif (hari / kosong=Lifetime)")
+        ip = ask("IP VPS")
+        item = add_entry(u, t, ma, ip, ask("Email"), ask("RAM"), ask("Pesan"),
+                         ask("SSH user"), ask("SSH pass"), str(ask("Server aktif (true/false)", "true")).lower() != "false")
+        print("Disimpan:\n" + table_str([item]))
+
+    def do_update():
+        tok = ask("ID / username")
+        if not resolve_id(tok):
+            print("Tidak ditemukan"); return
+        f = {}
+        for k, a in [("username", "username"), ("tipe", "tipeAkun"), ("masa-aktif", "masaAktif"),
+                     ("ip", "ipVps"), ("email", "emailMember"), ("ram", "ram"), ("pesan", "pesan"),
+                     ("ssh-user", "userSsh"), ("ssh-pass", "passSsh"), ("server-aktif", "serverAktif")]:
+            v = ask(f"{k} (kosong=skip)")
+            if v:
+                f[a] = v
+        res = update_entry(tok, **f)
+        print("Diperbarui:\n" + table_str([res]) if res else "Gagal")
+
+    def do_renew():
+        tok = ask("ID / username")
+        d = ask("Tambah hari")
+        if not d.isdigit():
+            print("Hari harus angka"); return
+        res = renew_entry(tok, int(d))
+        print(f"Diperpanjang {d} hari -> {res['masaAktif']}" if res else "Gagal")
+
+    def do_check():
+        d = ask("Batas hari", "7") or "7"
+        try:
+            dd = int(d)
+        except ValueError:
+            dd = 7
+        res = check_expiry(dd)
+        print("Kadaluarsa (" + str(len(res['expired'])) + "):\n" + table_str(res['expired']) +
+              "\nPeringatan <= " + str(dd) + " hari (" + str(len(res['warning'])) + "):\n" +
+              table_str([x for x, _ in res['warning']]))
+
+    def do_ssh():
+        tok = ask("ID / username")
+        if not resolve_id(tok):
+            print("Tidak ditemukan"); return
+        print("1. Jalankan perintah\n2. Setup otomatis (WendyVpn)")
+        p = input("Pilih> ").strip()
+        if p == "1":
+            c = ask("Perintah (kosong=test)")
+            print(_capture(cmd_ssh, types.SimpleNamespace(id=tok, cmd=c or None, setup=False)))
+        elif p == "2":
+            print(_capture(cmd_ssh, types.SimpleNamespace(id=tok, cmd=None, setup=True)))
+
+    def do_dns():
+        print("1. Setel kredensial\n2. List zona\n3. List record\n4. Tambah\n5. Hapus")
+        p = input("Pilih> ").strip()
+        if p == "1":
+            save_cf({"email": ask("Cloudflare email"), "key": ask("Global API Key")})
+            print("Disimpan")
+        elif p == "2":
+            print(_capture(cmd_dns, types.SimpleNamespace(action="zones", email=None, key=None,
+                     zone=None, record=None, type=None, name=None, content=None, ttl="1", proxied=False)))
+        elif p == "3":
+            z = ask("Zone ID")
+            print(_capture(cmd_dns, types.SimpleNamespace(action="records", email=None, key=None,
+                     zone=z, record=None, type=None, name=None, content=None, ttl="1", proxied=False)))
+        elif p == "4":
+            z = ask("Zone ID"); ty = ask("Type"); nm = ask("Name"); ct = ask("Content")
+            pr = ask("Proxied (y/n)") == "y"
+            print(_capture(cmd_dns, types.SimpleNamespace(action="add", email=None, key=None,
+                     zone=z, record=None, type=ty, name=nm, content=ct, ttl="1", proxied=pr)))
+        elif p == "5":
+            z = ask("Zone ID"); r = ask("Record ID")
+            print(_capture(cmd_dns, types.SimpleNamespace(action="del", email=None, key=None,
+                     zone=z, record=r, type=None, name=None, content=None, ttl="1", proxied=False)))
+
+    def do_github():
+        print("1. Setel konfig\n2. Import (pull)\n3. Sync (push)\n4. Tampilkan isi")
+        p = input("Pilih> ").strip()
+        if p == "1":
+            d = load_github() or {}
+            d.update({"username": ask("GitHub user"), "repo": ask("Repo"), "filePath": ask("File path"),
+                      "token": ask("Token"), "enabled": ask("Enabled (true/false)") == "true"})
+            save_github(d); print("Disimpan")
+        elif p == "2":
+            print(_capture(cmd_github, types.SimpleNamespace(action="import")))
+        elif p == "3":
+            print(_capture(cmd_github, types.SimpleNamespace(action="sync")))
+        elif p == "4":
+            print(_capture(cmd_github, types.SimpleNamespace(action="show")))
+
+    menu = [
+        ("Lihat Daftar", lambda: print(table_str(load_vps()))),
+        ("Tambah VPS", do_add),
+        ("Cari", lambda: print(table_str(filter_data(load_vps(), search=input("Cari> "))))),
+        ("Update", do_update),
+        ("Hapus", lambda: print("Berhasil" if delete_entry(ask("ID / username")) else "Gagal")),
+        ("Perpanjang", do_renew),
+        ("Cek Kadaluarsa", do_check),
+        ("SSH Remote", do_ssh),
+        ("DNS Cloudflare", do_dns),
+        ("GitHub", do_github),
+        ("Keluar", None),
+    ]
+    while True:
+        print("\n=== ManageSC CLI (menu teks) ===")
+        for i, (l, _) in enumerate(menu, 1):
+            print(f"{i:2}. {l}")
+        c = input("Pilih (1-11, 0=Keluar)> ").strip()
+        if c in ("0", "11"):
+            break
+        try:
+            idx = int(c) - 1
+        except ValueError:
+            continue
+        if 0 <= idx < len(menu):
+            fn = menu[idx][1]
+            if fn is None:
+                break
+            try:
+                fn()
+            except Exception as e:
+                print("Error:", e)
 
 
 def _run_tui(stdscr):
