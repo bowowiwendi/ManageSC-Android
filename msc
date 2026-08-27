@@ -11,6 +11,7 @@ import sys
 import io
 import contextlib
 import types
+import shutil
 import urllib.request
 import urllib.error
 from datetime import datetime, timedelta, date
@@ -398,6 +399,34 @@ def cf_request(method, path, body=None):
         return None, f"Error: {e}"
 
 
+def _cf_zones():
+    body, err = cf_request("GET", "zones")
+    if err:
+        return None, err
+    if not body.get("success"):
+        return None, str(body.get("errors"))
+    return body.get("result", []), None
+
+
+def _dns_upsert(zone_id, name, ip):
+    """Buat atau perbarui record A (Cloudflare) lalu kembalikan pesan."""
+    body, err = cf_request("GET", f"zones/{zone_id}/dns_records")
+    if err:
+        return f"Gagal list record: {err}"
+    recs = body.get("result", []) if body and body.get("success") else []
+    existing = [r for r in recs if r.get("type") == "A" and r.get("name") == name]
+    payload = {"type": "A", "name": name, "content": ip, "ttl": 1, "proxied": False}
+    if existing:
+        res, err = cf_request("PUT", f"zones/{zone_id}/dns_records/{existing[0]['id']}", payload)
+        act = "diperbarui"
+    else:
+        res, err = cf_request("POST", f"zones/{zone_id}/dns_records", payload)
+        act = "ditambah"
+    if err:
+        return f"Error: {err}"
+    return f"DNS {act}: {name} -> {ip} " + ("OK" if res.get("success") else str(res.get("errors")))
+
+
 # ---------------------------------------------------------------------------
 # SSH helpers (via system ssh / sshpass)
 # ---------------------------------------------------------------------------
@@ -713,27 +742,82 @@ def text_menu_main():
             print(_capture(cmd_ssh, types.SimpleNamespace(id=tok, cmd=None, setup=True)))
 
     def do_dns():
-        print("1. Setel kredensial\n2. List zona\n3. List record\n4. Tambah\n5. Hapus")
+        def pick():
+            zones, err = _cf_zones()
+            if err:
+                print(err)
+                return None
+            if not zones:
+                print("Tidak ada domain")
+                return None
+            for i, z in enumerate(zones, 1):
+                print(f"{i}. {z['name']}  ({z['status']})")
+            try:
+                i = int(input("Pilih domain> ")) - 1
+            except ValueError:
+                return None
+            return zones[i] if 0 <= i < len(zones) else None
+
+        print("1. Setel kredensial\n2. List zona\n3. List record\n4. Tambah record\n5. Hapus record\n6. Update DNS VPS -> push GitHub")
         p = input("Pilih> ").strip()
         if p == "1":
             save_cf({"email": ask("Cloudflare email"), "key": ask("Global API Key")})
             print("Disimpan")
         elif p == "2":
-            print(_capture(cmd_dns, types.SimpleNamespace(action="zones", email=None, key=None,
-                     zone=None, record=None, type=None, name=None, content=None, ttl="1", proxied=False)))
+            zones, err = _cf_zones()
+            print(err or "\n".join(f"{z['name']}  id={z['id']}" for z in (zones or [])) or "kosong")
         elif p == "3":
-            z = ask("Zone ID")
-            print(_capture(cmd_dns, types.SimpleNamespace(action="records", email=None, key=None,
-                     zone=z, record=None, type=None, name=None, content=None, ttl="1", proxied=False)))
+            z = pick()
+            if z:
+                print(_capture(cmd_dns, types.SimpleNamespace(action="records", email=None, key=None,
+                         zone=z["id"], record=None, type=None, name=None, content=None, ttl="1", proxied=False)))
         elif p == "4":
-            z = ask("Zone ID"); ty = ask("Type"); nm = ask("Name"); ct = ask("Content")
-            pr = ask("Proxied (y/n)") == "y"
-            print(_capture(cmd_dns, types.SimpleNamespace(action="add", email=None, key=None,
-                     zone=z, record=None, type=ty, name=nm, content=ct, ttl="1", proxied=pr)))
+            z = pick()
+            if z:
+                ty = ask("Type", "A"); nm = ask("Name (kosong=root)"); ct = ask("Content (IP)")
+                pr = ask("Proxied (y/n)") == "y"
+                print(_capture(cmd_dns, types.SimpleNamespace(action="add", email=None, key=None,
+                         zone=z["id"], record=None, type=ty, name=nm or z["name"], content=ct, ttl="1", proxied=pr)))
         elif p == "5":
-            z = ask("Zone ID"); r = ask("Record ID")
-            print(_capture(cmd_dns, types.SimpleNamespace(action="del", email=None, key=None,
-                     zone=z, record=r, type=None, name=None, content=None, ttl="1", proxied=False)))
+            z = pick()
+            if z:
+                body, _ = cf_request("GET", f"zones/{z['id']}/dns_records")
+                recs = body.get("result", []) if body and body.get("success") else []
+                for i, r in enumerate(recs, 1):
+                    print(f"{i}. {r['type']} {r['name']} -> {r['content']}")
+                try:
+                    i = int(input("Pilih record> ")) - 1
+                except ValueError:
+                    return
+                if 0 <= i < len(recs):
+                    print(_capture(cmd_dns, types.SimpleNamespace(action="del", email=None, key=None,
+                         zone=z["id"], record=recs[i]["id"], type=None, name=None, content=None, ttl="1", proxied=False)))
+        elif p == "6":
+            z = pick()
+            if not z:
+                return
+            data = load_vps()
+            if not data:
+                print("Data VPS kosong")
+                return
+            for i, v in enumerate(data, 1):
+                print(f"{i}. {v['username']} {v['ipVps']} ({v['masaAktif']})")
+            try:
+                i = int(input("Pilih VPS> ")) - 1
+            except ValueError:
+                return
+            if not (0 <= i < len(data)):
+                return
+            v = data[i]
+            ip = v["ipVps"].lstrip("'")
+            nm = ask("Subdomain (kosong=root domain)", v["username"])
+            name = nm or z["name"]
+            print(_dns_upsert(z["id"], name, ip))
+            gh = load_github()
+            if gh and gh.get("enabled") and gh.get("token"):
+                print(_capture(cmd_github, types.SimpleNamespace(action="sync")))
+            else:
+                print("(GitHub tidak enabled/token kosong -> skip push)")
 
     def do_github():
         print("1. Setel konfig\n2. Import (pull)\n3. Sync (push)\n4. Tampilkan isi")
@@ -764,12 +848,13 @@ def text_menu_main():
         ("Keluar", None),
     ]
     while True:
+        w = shutil.get_terminal_size((80, 24)).columns
         for line in BANNER:
-            print(c(line, 1, 96))
-        print(c("=== ManageSC CLI — menu teks ===", "bold", 96))
+            print(c(line.center(w), 1, 96))
+        print(c("=== ManageSC CLI — menu teks ===".center(w), "bold", 96))
         for i, (l, _) in enumerate(menu, 1):
-            print(c(f"{i:2}. ", "bold", 92) + l)
-        choice = input(c("Pilih (1-11, 0=Keluar)> ", "bold", 93)).strip()
+            print(c(f"{i:2}. {l}".center(w), "bold", 92))
+        choice = input(c("Pilih (1-11, 0=Keluar)> ".center(w), "bold", 93)).strip()
         if choice in ("0", "11"):
             break
         try:
@@ -803,24 +888,33 @@ def _run_tui(stdscr):
 
     def draw(title, items, sel, banner=False):
         stdscr.erase()
-        y = 0
+        lines = []
+        if banner and H >= 14:
+            lines.extend(BANNER)
+            lines.append("")
+        lines.append(title)
+        lines.append("[up/down] pilih  [Enter] jalankan  [q/Esc] kembali")
+        block_h = len(lines) + len(items)
+        start_y = max(0, (H - block_h) // 2)
+        y = start_y
         if banner and H >= 14:
             for line in BANNER:
                 try:
-                    stdscr.addstr(y, 2, line, curses.A_BOLD | curses.color_pair(1))
+                    stdscr.addstr(y, max(0, (W - len(line)) // 2), line, curses.A_BOLD | curses.color_pair(1))
                 except Exception:
                     pass
                 y += 1
             y += 1
         try:
-            stdscr.addstr(y, 0, title, curses.A_BOLD | curses.color_pair(1)); y += 1
-            stdscr.addstr(y, 0, "[up/down] pilih  [Enter] jalankan  [q/Esc] kembali", curses.A_DIM); y += 2
+            stdscr.addstr(y, max(0, (W - len(title)) // 2), title, curses.A_BOLD | curses.color_pair(1)); y += 1
+            stdscr.addstr(y, max(0, (W - 60) // 2), "[up/down] pilih  [Enter] jalankan  [q/Esc] kembali", curses.A_DIM); y += 2
         except Exception:
             pass
         for i, (label, _) in enumerate(items):
+            x = max(0, (W - len(label)) // 2)
             try:
                 style = curses.A_REVERSE | (curses.color_pair(2) if i == sel else 0)
-                stdscr.addstr(y + i, 2, label, style)
+                stdscr.addstr(y + i, x, label, style)
             except Exception:
                 pass
         stdscr.refresh()
@@ -843,7 +937,7 @@ def _run_tui(stdscr):
         while True:
             stdscr.erase()
             try:
-                stdscr.addstr(0, 0, title, curses.A_BOLD | curses.color_pair(1))
+                stdscr.addstr(0, max(0, (W - len(title)) // 2), title, curses.A_BOLD | curses.color_pair(1))
                 stdscr.addstr(1, 0, "[up/down] scroll  [q/Esc] kembali", curses.A_DIM)
             except Exception:
                 pass
@@ -969,42 +1063,111 @@ def _run_tui(stdscr):
         ])
 
     def h_dns():
+        def pick():
+            zones, err = _cf_zones()
+            if err:
+                return None, err
+            if not zones:
+                return None, "Tidak ada domain"
+            show_text("Pilih Domain", "\n".join(f"{i+1}. {z['name']} ({z['status']})" for i, z in enumerate(zones)))
+            n = get_text("Nomor domain (kosong=batal)")
+            if not n:
+                return None, "batal"
+            try:
+                i = int(n) - 1
+            except ValueError:
+                return None, "salah"
+            return (zones[i] if 0 <= i < len(zones) else None), None
+
         def cfg():
-            e = get_text("Cloudflare email")
-            k = get_text("Global API Key")
-            save_cf({"email": e, "key": k})
+            save_cf({"email": get_text("Cloudflare email"), "key": get_text("Global API Key")})
             return "Disimpan"
 
-        def zones():
-            return _capture(cmd_dns, types.SimpleNamespace(action="zones", email=None, key=None,
-                             zone=None, record=None, type=None, name=None, content=None, ttl="1", proxied=False))
+        def act_list():
+            z, err = pick()
+            if err:
+                show_text("?", err)
+                return
+            if z:
+                show_text("Records " + z["name"], _capture(cmd_dns, types.SimpleNamespace(
+                    action="records", email=None, key=None, zone=z["id"], record=None, type=None,
+                    name=None, content=None, ttl="1", proxied=False)))
 
-        def recs():
-            z = get_text("Zone ID")
-            return _capture(cmd_dns, types.SimpleNamespace(action="records", email=None, key=None,
-                             zone=z, record=None, type=None, name=None, content=None, ttl="1", proxied=False))
-
-        def add():
-            z = get_text("Zone ID")
-            ty = get_text("Type")
-            nm = get_text("Name")
-            ct = get_text("Content")
+        def act_add():
+            z, err = pick()
+            if err:
+                show_text("?", err)
+                return
+            if not z:
+                return
+            ty = get_text("Type", "A")
+            nm = get_text("Name (kosong=root)")
+            ct = get_text("Content (IP)")
             pr = get_text("Proxied? (y/n)") == "y"
-            return _capture(cmd_dns, types.SimpleNamespace(action="add", email=None, key=None,
-                             zone=z, record=None, type=ty, name=nm, content=ct, ttl="1", proxied=pr))
+            show_text("Tambah", _capture(cmd_dns, types.SimpleNamespace(
+                action="add", email=None, key=None, zone=z["id"], record=None, type=ty,
+                name=nm or z["name"], content=ct, ttl="1", proxied=pr)))
 
-        def dele():
-            z = get_text("Zone ID")
-            r = get_text("Record ID")
-            return _capture(cmd_dns, types.SimpleNamespace(action="del", email=None, key=None,
-                             zone=z, record=r, type=None, name=None, content=None, ttl="1", proxied=False))
+        def act_del():
+            z, err = pick()
+            if err:
+                show_text("?", err)
+                return
+            if not z:
+                return
+            body, _ = cf_request("GET", f"zones/{z['id']}/dns_records")
+            recs = body.get("result", []) if body and body.get("success") else []
+            show_text("Pilih Record", "\n".join(f"{i+1}. {r['type']} {r['name']} -> {r['content']}" for i, r in enumerate(recs)))
+            n = get_text("Nomor record")
+            try:
+                i = int(n) - 1
+            except ValueError:
+                return
+            if 0 <= i < len(recs):
+                show_text("Hapus", _capture(cmd_dns, types.SimpleNamespace(
+                    action="del", email=None, key=None, zone=z["id"], record=recs[i]["id"],
+                    type=None, name=None, content=None, ttl="1", proxied=False)))
+
+        def act_push():
+            z, err = pick()
+            if err:
+                show_text("?", err)
+                return
+            if not z:
+                return
+            data = load_vps()
+            if not data:
+                show_text("?", "Data VPS kosong")
+                return
+            show_text("Pilih VPS", "\n".join(f"{i+1}. {v['username']} {v['ipVps']}" for i, v in enumerate(data)))
+            n = get_text("Nomor VPS")
+            try:
+                i = int(n) - 1
+            except ValueError:
+                return
+            if not (0 <= i < len(data)):
+                return
+            v = data[i]
+            ip = v["ipVps"].lstrip("'")
+            nm = get_text("Subdomain (kosong=root domain)", v["username"])
+            name = nm or z["name"]
+            out = _dns_upsert(z["id"], name, ip)
+            gh = load_github()
+            if gh and gh.get("enabled") and gh.get("token"):
+                out += "\n" + _capture(cmd_github, types.SimpleNamespace(action="sync"))
+            else:
+                out += "\n(GitHub tidak enabled/token kosong -> skip push)"
+            show_text("DNS + VPS", out)
 
         menu_loop("Cloudflare DNS", [
             ("Setel kredensial", cfg),
-            ("List zona", zones),
-            ("List record", recs),
-            ("Tambah record", add),
-            ("Hapus record", dele),
+            ("List zona", lambda: show_text("Zona", _capture(cmd_dns, types.SimpleNamespace(
+                action="zones", email=None, key=None, zone=None, record=None, type=None,
+                name=None, content=None, ttl="1", proxied=False)))),
+            ("List record", act_list),
+            ("Tambah record", act_add),
+            ("Hapus record", act_del),
+            ("Update DNS VPS -> push GitHub", act_push),
             ("Kembali", None),
         ])
 
