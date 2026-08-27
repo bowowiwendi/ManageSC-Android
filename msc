@@ -15,6 +15,27 @@ import urllib.request
 import urllib.error
 from datetime import datetime, timedelta, date
 
+# ---------------------------------------------------------------------------
+# Warna & banner
+# ---------------------------------------------------------------------------
+USE_COLOR = sys.stdout.isatty()
+
+
+def c(text, *codes):
+    if not USE_COLOR:
+        return text
+    pre = "".join("\033[%dm" % code for code in codes)
+    return pre + text + "\033[0m"
+
+
+BANNER = [
+    "  ___    __    _   _  ____  ____  _   _  ___  ___ ",
+    " / __|  / /\\  | | | |/ ___|| ___|| | | |/ __|/ __|",
+    "| (__  / /  \\ | |_| | (__  |__ \\| |_| | (__ \\__ \\",
+    " \\___|/_/    \\_\\\\__,_|\\___||____/ \\__,_|\\___||___/",
+    "            M A N A G E S C   '  C L I",
+]
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 VPS_FILE = os.path.join(DATA_DIR, "vps.json")
@@ -405,7 +426,7 @@ def ssh_run(host, user, passwd, command, port=22, timeout=60):
 # ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
-def table_str(data):
+def table_str(data, color=False):
     if not data:
         return "(kosong)"
     headers = ["ID", "Username", "Tipe", "Masa Aktif", "IP VPS", "Email", "RAM", "SSH"]
@@ -413,15 +434,25 @@ def table_str(data):
              it.get("masaAktif", ""), it.get("ipVps", ""), it.get("emailMember", ""),
              it.get("ram", ""), "on" if it.get("userSsh") else "-"] for it in data]
     widths = [max(len(h), *(len(r[i]) for r in rows)) for i, h in enumerate(headers)]
-    lines = [" | ".join(h.ljust(widths[i]) for i, h in enumerate(headers)),
-             "-+-".join("-" * w for w in widths)]
+    lines = [" | ".join(
+        c(h.ljust(widths[i]), 1, 96) if color else h.ljust(widths[i]) for i, h in enumerate(headers)),
+        "-+-".join("-" * w for w in widths)]
     for r in rows:
-        lines.append(" | ".join(r[i].ljust(widths[i]) for i in range(len(headers))))
+        cells = []
+        for i, val in enumerate(r):
+            if color and i == 7:
+                val = c(val.ljust(widths[i]), 32 if val == "on" else 90)
+            elif color and i == 1:
+                val = c(val.ljust(widths[i]), 1, 97)
+            else:
+                val = val.ljust(widths[i])
+            cells.append(val)
+        lines.append(" | ".join(cells))
     return "\n".join(lines)
 
 
 def print_table(data):
-    print(table_str(data))
+    print(table_str(data, color=USE_COLOR))
     if not data:
         print("(kosong)")
         return
@@ -733,14 +764,16 @@ def text_menu_main():
         ("Keluar", None),
     ]
     while True:
-        print("\n=== ManageSC CLI (menu teks) ===")
+        for line in BANNER:
+            print(c(line, 1, 96))
+        print(c("=== ManageSC CLI — menu teks ===", "bold", 96))
         for i, (l, _) in enumerate(menu, 1):
-            print(f"{i:2}. {l}")
-        c = input("Pilih (1-11, 0=Keluar)> ").strip()
-        if c in ("0", "11"):
+            print(c(f"{i:2}. ", "bold", 92) + l)
+        choice = input(c("Pilih (1-11, 0=Keluar)> ", "bold", 93)).strip()
+        if choice in ("0", "11"):
             break
         try:
-            idx = int(c) - 1
+            idx = int(choice) - 1
         except ValueError:
             continue
         if 0 <= idx < len(menu):
@@ -758,17 +791,36 @@ def _run_tui(stdscr):
     curses.curs_set(0)
     stdscr.keypad(True)
     H, W = stdscr.getmaxyx()
+    try:
+        curses.start_color()
+        curses.use_default_colors()
+        curses.init_pair(1, curses.COLOR_CYAN, -1)
+        curses.init_pair(2, curses.COLOR_GREEN, -1)
+        curses.init_pair(3, curses.COLOR_YELLOW, -1)
+        curses.init_pair(4, curses.COLOR_MAGENTA, -1)
+    except Exception:
+        pass
 
-    def draw(title, items, sel):
+    def draw(title, items, sel, banner=False):
         stdscr.erase()
+        y = 0
+        if banner and H >= 14:
+            for line in BANNER:
+                try:
+                    stdscr.addstr(y, 2, line, curses.A_BOLD | curses.color_pair(1))
+                except Exception:
+                    pass
+                y += 1
+            y += 1
         try:
-            stdscr.addstr(0, 0, title, curses.A_BOLD)
-            stdscr.addstr(1, 0, "[up/down] pilih  [Enter] jalankan  [q/Esc] kembali", curses.A_DIM)
+            stdscr.addstr(y, 0, title, curses.A_BOLD | curses.color_pair(1)); y += 1
+            stdscr.addstr(y, 0, "[up/down] pilih  [Enter] jalankan  [q/Esc] kembali", curses.A_DIM); y += 2
         except Exception:
             pass
         for i, (label, _) in enumerate(items):
             try:
-                stdscr.addstr(3 + i, 2, label, curses.A_REVERSE if i == sel else curses.A_NORMAL)
+                style = curses.A_REVERSE | (curses.color_pair(2) if i == sel else 0)
+                stdscr.addstr(y + i, 2, label, style)
             except Exception:
                 pass
         stdscr.refresh()
@@ -791,7 +843,7 @@ def _run_tui(stdscr):
         while True:
             stdscr.erase()
             try:
-                stdscr.addstr(0, 0, title, curses.A_BOLD)
+                stdscr.addstr(0, 0, title, curses.A_BOLD | curses.color_pair(1))
                 stdscr.addstr(1, 0, "[up/down] scroll  [q/Esc] kembali", curses.A_DIM)
             except Exception:
                 pass
@@ -811,10 +863,10 @@ def _run_tui(stdscr):
             elif ch == curses.KEY_UP:
                 top = max(0, top - 1)
 
-    def menu_loop(title, items):
+    def menu_loop(title, items, banner=False):
         sel = 0
         while True:
-            draw(title, items, sel)
+            draw(title, items, sel, banner)
             ch = stdscr.getch()
             if ch == curses.KEY_UP:
                 sel = (sel - 1) % len(items)
@@ -997,7 +1049,7 @@ def _run_tui(stdscr):
         ("DNS Cloudflare", h_dns),
         ("GitHub", h_github),
         ("Keluar", None),
-    ])
+    ], banner=H >= 14)
 
 
 def build_parser():
