@@ -4,61 +4,73 @@ Alat manajemen penyewaan VPS berbasis terminal, diadaptasi dari
 [bowowiwendi/ManageSC-Android](https://github.com/bowowiwendi/ManageSC-Android)
 (Android, Kotlin). Python stdlib saja (tanpa `pip install`). Data di `data/*.json`.
 
-## Jalankan cukup dengan `msc`
-File `msc` adalah script Python ber-shebang. Setelah ada di PATH:
+## Catatan nama perintah
+`msc` adalah nama compiler C# **Mono** di Termux/Alpine, sehingga command tool ini
+adalah **`managesc`** agar tidak bentrok. (Jika Anda yakin tidak pakai Mono, bebas
+ganti namanya saat install.)
+
+## Instal di Termux
 ```sh
-msc            # langsung masuk TUI (menu interaktif)
-msc --help     # mode perintah (argparse)
+pkg install -y python3
+wget -qO $PREFIX/bin/managesc https://raw.githubusercontent.com/bowowiwendi/ManageSC-Android/main/msc \
+  && chmod +x $PREFIX/bin/managesc
+managesc
+```
+(Python3 + curses biasanya sudah ada di Termux; tidak perlu `ncurses` terpisah.)
+
+## Instal di Alpine
+```sh
+apk add --no-cache python3 ncurses
+wget -qO /usr/local/bin/managesc https://raw.githubusercontent.com/bowowiwendi/ManageSC-Android/main/msc \
+  && chmod +x /usr/local/bin/managesc
+managesc
 ```
 
-## Instal di Alpine (satu command)
+## Jalankan
 ```sh
-apk add --no-cache python3 ncurses && \
-wget -qO /usr/local/bin/msc https://raw.githubusercontent.com/bowowiwendi/ManageSC-Android/main/msc && \
-chmod +x /usr/local/bin/msc && msc
+managesc            # TUI curses (terminal asli) ATAU fallback menu teks (non-TTY)
+managesc --help     # mode perintah (argparse)
 ```
-(`ncurses` agar modul `curses` tersedia untuk TUI.)
+Jika dijalankan dari runner non-TTY (mis. opencode), otomatis fallback ke menu teks
+bernomor — semua fitur tetap bisa.
 
-## TUI (menu interaktif)
-Jalankan `msc` tanpa argumen. Navigasi:
-- `↑` / `↓` pilih menu, `Enter` jalankan, `q` / `Esc` kembali.
-- Menu: Lihat Daftar, Tambah, Cari, Update, Hapus, Perpanjang,
-  Cek Kadaluarsa, SSH Remote, DNS Cloudflare, GitHub.
-- Form input ditampilkan baris bawah; kosongkan field untuk skip (saat Update).
+## Menu (TUI / teks)
+Lihat Daftar, Tambah, Cari, Update, Hapus, Perpanjang, Cek Kadaluarsa,
+SSH Remote, DNS Cloudflare, GitHub.
 
 ## Mode perintah (argparse)
 ```bash
-msc add --username budi --tipe limit --masa-aktif 30 --ip 1.2.3.4 \
+managesc add --username budi --tipe limit --masa-aktif 30 --ip 1.2.3.4 \
         --ssh-user root --ssh-pass rahasia --ram 2GB
-msc list --search budi
-msc update budi --ram 4GB --server-aktif false
-msc delete budi
-msc renew budi --days 10
-msc check --days 7
+managesc list --search budi
+managesc update budi --ram 4GB --server-aktif false
+managesc delete budi
+managesc renew budi --days 10
+managesc check --days 7
 ```
 
 ### Remote SSH
 ```bash
-msc ssh budi                 # test koneksi
-msc ssh budi --cmd "uptime"  # jalankan perintah
-msc ssh budi --setup         # setup otomatis WendyVpn
+managesc ssh budi                 # test koneksi
+managesc ssh budi --cmd "uptime"  # jalankan perintah
+managesc ssh budi --setup         # setup otomatis WendyVpn
 ```
 
 ### Cloudflare DNS
 ```bash
-msc dns config --email a@b.com --key <global_api_key>
-msc dns zones
-msc dns records --zone <zone_id>
-msc dns add --zone <zone_id> --type A --name sub.domain.com --content 1.2.3.4 --proxied
-msc dns del --zone <zone_id> --record <record_id>
+managesc dns config --email a@b.com --key <global_api_key>
+managesc dns zones
+managesc dns records --zone <zone_id>
+managesc dns add --zone <zone_id> --type A --name sub.domain.com --content 1.2.3.4 --proxied
+managesc dns del --zone <zone_id> --record <record_id>
 ```
 
 ### GitHub
 ```bash
-msc github config --username bowowiwendi --repo ipvps --file-path main/ip --token TOKEN --enabled true
-msc github show      # generate ### user expiry ip
-msc github import    # pull (kredensial SSH lokal dipertahankan)
-msc github sync      # push
+managesc github config --username bowowiwendi --repo ipvps --file-path main/ip --token TOKEN --enabled true
+managesc github show      # generate ### user expiry ip
+managesc github import    # pull (kredensial SSH lokal dipertahankan)
+managesc github sync      # push
 ```
 
 ## Keamanan
